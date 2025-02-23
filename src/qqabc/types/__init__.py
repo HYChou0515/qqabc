@@ -41,3 +41,7 @@ class NewJobRequest:
         self.job_type = job_type
         self.job_body = job_body
         self.nice = nice
+
+
+class EmptyQueueError(IndexError):
+    pass

@@ -3,7 +3,14 @@ import unittest
 import pytest
 
 from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
-from qqabc.types import Job, JobBody, NewJobRequest, SerializedJob, SerializedJobBody
+from qqabc.types import (
+    EmptyQueueError,
+    Job,
+    JobBody,
+    NewJobRequest,
+    SerializedJob,
+    SerializedJobBody,
+)
 
 
 def test_job_body_exists() -> None:
@@ -139,28 +146,48 @@ class TestJobController(unittest.TestCase):
             job_serializer=MyJobSerializer(),
         )
 
+    def tearDown(self) -> None:
+        self.job_controller.job_dao.drop_all_jobs()
+
+    def _add_new_job_request_of_my_job_1(self) -> Job:
+        new_job_request = NewJobRequest(
+            job_type="my_job",
+            job_body=JobBody(),
+        )
+        job = self.job_controller.add_job(new_job_request)
+        return job
+
+    def assert_job_type(self, job: Job) -> None:
+        assert isinstance(job, Job)
+        assert job.job_type == "my_job"
+        assert isinstance(job.job_body, JobBody)
+        assert isinstance(job.job_id, str)
+        assert isinstance(job.nice, int)
+
     def test_get_non_created_job_raises_key_error(self) -> None:
         with pytest.raises(KeyError) as e:
             self.job_controller.get_job(job_id="my_job")
         assert e.match("my_job")
 
     def test_add_new_job(self) -> None:
-        new_job_request = NewJobRequest(
-            job_type="my_job",
-            job_body=JobBody(),
-        )
-        job = self.job_controller.add_job(new_job_request)
+        job = self._add_new_job_request_of_my_job_1()
         assert job is not None
 
     def test_get_added_job_returns_the_job(self) -> None:
-        new_job_request = NewJobRequest(
-            job_type="my_job",
-            job_body=JobBody(),
-        )
-        job = self.job_controller.add_job(new_job_request)
+        job = self._add_new_job_request_of_my_job_1()
         returned = self.job_controller.get_job(job.job_id)
-        assert isinstance(returned, Job)
-        assert returned.job_type == "my_job"
-        assert isinstance(returned.job_body, JobBody)
-        assert isinstance(returned.job_id, str)
+        self.assert_job_type(job)
         assert returned.nice == 0
+        assert returned.job_id == job.job_id
+
+    def test_get_next_job_from_empty_queue_raise_empty_queue_error(self) -> None:
+        with pytest.raises(EmptyQueueError) as e:
+            self.job_controller.get_next_job(job_type="my_job")
+        assert e.match("my_job")
+
+    def test_get_next_job_returns_the_job(self) -> None:
+        job = self._add_new_job_request_of_my_job_1()
+        returned = self.job_controller.get_next_job(job_type="my_job")
+        self.assert_job_type(job)
+        assert returned.nice == 0
+        assert returned.job_id == job.job_id
