@@ -4,3 +4,5 @@ test-func:
 test-style:
 	. .venv/bin/activate && cd src && mypy qqabc tests && \
 	ruff check qqabc tests
+style:
+	. .venv/bin/activate && cd src && ruff check --fix qqabc tests
