@@ -8,7 +8,9 @@ from qqabc.types import (
     Job,
     JobBody,
     NewJobRequest,
+    NewJobStatusRequest,
     SerializedJobBody,
+    StatusEnum,
 )
 from tests.fixtures.faker import Faker
 
@@ -170,4 +172,9 @@ class TestJobConsumer:
         assert job.job_body.op == "add"
         assert job.job_body.a == 1
         assert job.job_body.b == 2
-        self.job_controller.create_job_result(job.job_id, 3)
+        self.job_controller.add_job_status(NewJobStatusRequest(
+            job_id=job.job_id,
+            status=StatusEnum.COMPLETED,
+            detail="Job completed successfully",
+            result=3,
+        ))

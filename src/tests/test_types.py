@@ -9,11 +9,13 @@ from qqabc.types import (
     JobBody,
     JobStatus,
     NewJobRequest,
+    NewJobStatusRequest,
     SerializedJob,
     SerializedJobBody,
     StatusEnum,
 )
 from tests.fixtures.faker import Faker
+import datetime as dt
 
 class TestEntityInstantiation:
 
@@ -89,6 +91,25 @@ class TestEntityInstantiation:
         assert new_job_request.job_body == kwargs["job_body"]
         assert new_job_request.nice == kwargs.get("nice", 0)
     
+    @pytest.mark.parametrize("set_default", [None, "issue_time"])
+    def test_new_job_status_request(self, fx_faker: Faker, set_default: str|None) -> None:
+        kwargs = {
+            "job_id": fx_faker.uuid4(),
+            "status": fx_faker.random_element(StatusEnum),
+            "issue_time": fx_faker.date_time(),
+            "detail": fx_faker.sentence(),
+            "result": fx_faker.pyint(),
+        }
+        if set_default == "issue_time":
+            del kwargs["issue_time"]
+        
+        new_job_status_request = NewJobStatusRequest(**kwargs)
+        assert new_job_status_request.job_id == kwargs["job_id"]
+        assert new_job_status_request.status == kwargs["status"]
+        assert new_job_status_request.detail == kwargs["detail"]
+        assert new_job_status_request.result == kwargs["result"]
+        assert new_job_status_request.issue_time == kwargs.get("issue_time", None)
+
 
 class TestJobSerializer:
     def test_job_serializer(self) -> None:

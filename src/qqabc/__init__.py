@@ -4,13 +4,20 @@ import abc
 import uuid
 
 from qqabc.types import (
+    NO_RESULT,
     EmptyQueueError,
     Job,
     JobBody,
+    JobStatus,
     NewJobRequest,
+    NewJobStatusRequest,
+    Result,
     SerializedJob,
     SerializedJobBody,
+    SerializedJobStatus,
+    SerializedResult,
 )
+import datetime as dt
 
 
 class JobSerializer(abc.ABC):
@@ -22,8 +29,8 @@ class JobSerializer(abc.ABC):
     def deserialize(self, serialized_job_body: SerializedJobBody) -> JobBody:
         pass
 
-    # def serialize_result(self, result: Result) -> SerializedJobBody:
-    #     return self.serialize(result)
+    def serialize_result(self, result: Result) -> SerializedResult:
+        return self.serialize(result)
 
     # def deserialize_result(self, serialized_result: SerializedResult) -> Result:
     #     return self.deserialize(serialized_result)
@@ -54,19 +61,37 @@ class JobSerializerRegistry:
 
 
 _queue: dict[str, SerializedJob] = {}  # Singleton
+_hist: dict[str, SerializedJob] = {}  # Singleton
 
 
 class JobDao:
     def __init__(self) -> None:
         self._queue = _queue
+        self._hist = _hist
 
-    def add_job(self, sjob: SerializedJob) -> None:
-        self._queue[sjob.job_id] = sjob
+    def add_job(self, s_job: SerializedJob) -> None:
+        self._queue[s_job.job_id] = s_job
 
-    def get_job(self, job_id: str) -> SerializedJob | None:
+    def _get_job_from_queue(self, job_id: str) -> SerializedJob | None:
         if job_id not in self._queue:
             return None
         return self._queue[job_id]
+    
+    def _get_job_from_hist(self, job_id: str) -> SerializedJob | None:
+        if job_id not in self._hist:
+            return None
+        return self._hist[job_id]
+
+    def get_job(self, job_id: str) -> SerializedJob | None:
+        if (job:=self._get_job_from_queue(job_id)) is None:
+            return self._get_job_from_hist(job_id)
+        return job
+    
+    def add_status(self, s_status: SerializedJobStatus) -> None:
+        pass
+
+    def get_status(self, status_id: str) -> SerializedJobStatus | None:
+        pass
 
     def pop_largest_priority_job(self, job_type: str) -> SerializedJob | None:
         jobs_with_type = [
@@ -74,6 +99,7 @@ class JobDao:
         if not jobs_with_type:
             return None
         sjob = min(jobs_with_type, key=lambda job: job.nice)
+        self._hist[sjob.job_id] = self._queue[sjob.job_id]
         del self._queue[sjob.job_id]
         return sjob
 
@@ -82,10 +108,6 @@ class JobDao:
 
 
 class JobQueueController:
-    # def create_job_result(self, job_id: str, result: Result) -> None:
-    #     serializer = self.job_serializer_registry.get_job_serializer(job_id)
-    #     serialized_result = serializer.serialize_result(result)
-    #     self.job_dao.add_result(job_id, serialized_result)
     def __init__(self) -> None:
         self.job_dao = JobDao()
         self.job_serializer_registry = JobSerializerRegistry()
@@ -129,3 +151,31 @@ class JobQueueController:
             job_body=serializer.deserialize(sjob.job_body_serialized),
         )
         return job
+
+    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
+        issue_time = request.issue_time or dt.datetime.now()
+        status = JobStatus(
+            status_id=uuid.uuid4().hex,
+            job_id=request.job_id,
+            issue_time=issue_time,
+            status=request.status,
+            detail=request.detail,
+            result=request.result,
+        )
+
+        job = self.get_job(request.job_id)
+        serializer = self.job_serializer_registry.get_job_serializer(job.job_type)
+        if request.result is not NO_RESULT:
+            serialized_result = serializer.serialize_result(request.result)
+        else:
+            serialized_result = None
+        s_status = SerializedJobStatus(
+            status_id=status.status_id,
+            job_id=status.job_id,
+            issue_time=status.issue_time,
+            status=status.status,
+            detail=status.detail,
+            result_serialized=serialized_result,
+        )
+        self.job_dao.add_status(s_status)
+        return status
