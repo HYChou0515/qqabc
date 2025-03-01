@@ -1,13 +1,15 @@
-import abc
+from __future__ import annotations
+from enum import Enum
+from typing import Any
+import datetime as dt
 
-
-class JobBody(abc.ABC):
+class StrEnum(str, Enum):
     pass
 
-
-class SerializedJobBody(abc.ABC):
-    pass
-
+JobBody = Any
+SerializedJobBody = bytes
+Result = Any
+SerializedResult = bytes
 
 class Job:
     def __init__(self, *,
@@ -31,6 +33,36 @@ class SerializedJob:
         self.job_id = job_id
         self.job_body_serialized = job_body_serialized
         self.nice = nice
+
+class StatusEnum(StrEnum):
+    ...
+
+class JobStatus:
+    def __init__(self, *,
+                 status_id: str,
+                 job_id: str,
+                 issue_time: dt.datetime,
+                 status: StatusEnum,
+                 detail: str,
+                 result: Result) -> None:
+        self.status_id = status_id
+        self.job_id = job_id
+        self.issue_time = issue_time
+        self.status = status
+        self.detail = detail
+        self.result = result
+
+
+# class SerializedJobStatus:
+#     def __init__(self, *,
+#                  job_type: str,
+#                  job_id: str,
+#                  job_body_serialized: SerializedJobBody,
+#                  nice: int = 0) -> None:
+#         self.job_type = job_type
+#         self.job_id = job_id
+#         self.job_body_serialized = job_body_serialized
+#         self.nice = nice
 
 
 class NewJobRequest:

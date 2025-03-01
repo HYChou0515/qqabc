@@ -22,6 +22,18 @@ class JobSerializer(abc.ABC):
     def deserialize(self, serialized_job_body: SerializedJobBody) -> JobBody:
         pass
 
+    # def serialize_result(self, result: Result) -> SerializedJobBody:
+    #     return self.serialize(result)
+
+    # def deserialize_result(self, serialized_result: SerializedResult) -> Result:
+    #     return self.deserialize(serialized_result)
+
+    # def serialize_job_body(self, result: Result) -> SerializedJobBody:
+    #     return self.serialize(result)
+
+    # def deserialize_job_body(self, serialized_result: SerializedResult) -> Result:
+    #     return self.deserialize(serialized_result)
+
 
 class JobSerializerRegistry:
     def __init__(self) -> None:
@@ -70,6 +82,10 @@ class JobDao:
 
 
 class JobQueueController:
+    # def create_job_result(self, job_id: str, result: Result) -> None:
+    #     serializer = self.job_serializer_registry.get_job_serializer(job_id)
+    #     serialized_result = serializer.serialize_result(result)
+    #     self.job_dao.add_result(job_id, serialized_result)
     def __init__(self) -> None:
         self.job_dao = JobDao()
         self.job_serializer_registry = JobSerializerRegistry()
