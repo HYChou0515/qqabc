@@ -16,8 +16,10 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "faker>=36.1.1",
+    "freezegun>=1.5.1",
     "mypy>=1.15.0",
     "pytest>=8.3.4",
+    "pytest-freezegun>=0.4.2",
     "ruff>=0.9.7",
 ]
 

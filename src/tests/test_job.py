@@ -12,7 +12,9 @@ from qqabc.types import (
     SerializedJobBody,
     StatusEnum,
 )
+import datetime as dt
 from tests.fixtures.faker import Faker
+from freezegun.api import FrozenDateTimeFactory
 
 @pytest.fixture
 def job_serializer_registry() -> JobSerializerRegistry:
@@ -162,7 +164,9 @@ class TestJobConsumer:
             job_serializer=MathJobSerializer(),
         )
 
-    def test_return_job_result(self) -> None:
+    def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
+        now = self.fx_faker.date_time()
+        freezer.move_to(now)
         new_job_request = NewJobRequest(
             job_type="math_job",
             job_body=MathJobBody(op="add", a=1, b=2),
@@ -172,9 +176,15 @@ class TestJobConsumer:
         assert job.job_body.op == "add"
         assert job.job_body.a == 1
         assert job.job_body.b == 2
-        self.job_controller.add_job_status(NewJobStatusRequest(
+        status_request = NewJobStatusRequest(
             job_id=job.job_id,
             status=StatusEnum.COMPLETED,
             detail="Job completed successfully",
             result=3,
-        ))
+        )
+        status = self.job_controller.add_job_status(status_request)
+        assert status.job_id == status_request.job_id
+        assert status.issue_time == now
+        assert status.status == status_request.status
+        assert status.detail == status_request.detail
+        assert status.result == status_request.result
