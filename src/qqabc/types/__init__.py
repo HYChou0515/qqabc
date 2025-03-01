@@ -6,6 +6,13 @@ import datetime as dt
 class StrEnum(str, Enum):
     pass
 
+class StatusEnum(StrEnum):
+    INITIAL = "INITIAL"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
 JobBody = NewType("JobBody", Any)
 SerializedJobBody = NewType("SerializedJobBody", bytes)
 Result = NewType("Result", Any)
@@ -33,13 +40,6 @@ class SerializedJob:
         self.job_id = job_id
         self.job_body_serialized = job_body_serialized
         self.nice = nice
-
-class StatusEnum(StrEnum):
-    INITIAL = "INITIAL"
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
 
 class JobStatus:
     def __init__(self, *,
