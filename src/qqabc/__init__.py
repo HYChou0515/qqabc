@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import datetime as dt
 import uuid
 
 from qqabc.types import (
@@ -17,7 +18,6 @@ from qqabc.types import (
     SerializedJobStatus,
     SerializedResult,
 )
-import datetime as dt
 
 
 class JobSerializer(abc.ABC):
@@ -76,17 +76,17 @@ class JobDao:
         if job_id not in self._queue:
             return None
         return self._queue[job_id]
-    
+
     def _get_job_from_hist(self, job_id: str) -> SerializedJob | None:
         if job_id not in self._hist:
             return None
         return self._hist[job_id]
 
     def get_job(self, job_id: str) -> SerializedJob | None:
-        if (job:=self._get_job_from_queue(job_id)) is None:
+        if (job := self._get_job_from_queue(job_id)) is None:
             return self._get_job_from_hist(job_id)
         return job
-    
+
     def add_status(self, s_status: SerializedJobStatus) -> None:
         pass
 

@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 
 from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
 from qqabc.types import (
@@ -12,19 +13,19 @@ from qqabc.types import (
     SerializedJobBody,
     StatusEnum,
 )
-import datetime as dt
 from tests.fixtures.faker import Faker
-from freezegun.api import FrozenDateTimeFactory
+
 
 @pytest.fixture
 def job_serializer_registry() -> JobSerializerRegistry:
     return JobSerializerRegistry()
 
+
 class TestJobSerializer:
     def test_register_job_serializer(self, fx_faker: Faker, job_serializer_registry: JobSerializerRegistry) -> None:
         class MyJobSerializer(JobSerializer):
             def serialize(self, job_body: JobBody) -> SerializedJobBody:
-                return bytes()
+                return b""
 
             def deserialize(self, serialized_job_body: SerializedJobBody) -> JobBody:
                 return object()
@@ -62,10 +63,12 @@ def test_job_queue_controller_can_be_instantiated() -> None:
     controller = JobQueueController()
     assert controller is not None
 
+
 class TestJobController:
     @pytest.fixture(autouse=True)
     def setup_method(self, fx_faker: Faker) -> None:
         self.fx_faker = fx_faker
+
         class MyJobSerializer(JobSerializer):
             def serialize(self, job_body: JobBody) -> SerializedJobBody:
                 return fx_faker.job_body_serialized()
@@ -81,11 +84,13 @@ class TestJobController:
         )
 
     def _add_new_job_request_of_my_job_1(self) -> Job:
-        new_job_request = NewJobRequest(
+        req = NewJobRequest(
             job_type=self.my_job_type,
             job_body=self.fx_faker.job_body(),
         )
-        job = self.job_controller.add_job(new_job_request)
+        job = self.job_controller.add_job(req)
+        assert job.job_body == req.job_body
+        assert job.job_type == req.job_type
         return job
 
     def assert_job_type(self, job: Job) -> None:
@@ -123,12 +128,14 @@ class TestJobController:
         assert returned.nice == 0
         assert returned.job_id == job.job_id
 
+
 class MathJobBody:
     def __init__(self, *args, op: str, a: int, b: int, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.op = op
         self.a = a
         self.b = b
+
 
 class TestJobConsumer:
     @pytest.fixture(autouse=True)
@@ -152,35 +159,34 @@ class TestJobConsumer:
                     a=data["a"],
                     b=data["b"],
                 )
+
             def serialize_result(self, result: int) -> SerializedJobBody:
                 return json.dumps(result).encode()
 
             def deserialize_result(self,
                             serialized_result: SerializedJobBody) -> int:
-                return json.loads(serialized_result.decode()) 
-                
+                return json.loads(serialized_result.decode())
+
+        self.job_type = fx_faker.job_type()
         self.job_controller.job_serializer_registry.register_job_serializer(
-            job_type="math_job",
+            job_type=self.job_type,
             job_serializer=MathJobSerializer(),
         )
 
     def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
         now = self.fx_faker.date_time()
         freezer.move_to(now)
-        new_job_request = NewJobRequest(
-            job_type="math_job",
-            job_body=MathJobBody(op="add", a=1, b=2),
-        )
-        self.job_controller.add_job(new_job_request)
-        job = self.job_controller.get_next_job(job_type="math_job")
-        assert job.job_body.op == "add"
-        assert job.job_body.a == 1
-        assert job.job_body.b == 2
+        job = self.job_controller.add_job(self.fx_faker.new_job_request(
+            job_type=self.job_type,
+            job_body=MathJobBody(
+                op="add", a=1, b=2
+            )
+        ))
         status_request = NewJobStatusRequest(
             job_id=job.job_id,
             status=StatusEnum.COMPLETED,
             detail="Job completed successfully",
-            result=3,
+            result=job.job_body.a + job.job_body.b,
         )
         status = self.job_controller.add_job_status(status_request)
         assert status.job_id == status_request.job_id
