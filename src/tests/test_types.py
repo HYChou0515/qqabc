@@ -27,7 +27,7 @@ class TestEntityInstantiation:
     @pytest.mark.parametrize("set_default", [None, "nice"])
     def test_job(self, fx_faker: Faker, set_default: str|None) -> None:
         kwargs = {
-            "job_type": fx_faker.name(),
+            "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body": fx_faker.job_body(),
             "nice": fx_faker.pyint(),
@@ -44,7 +44,7 @@ class TestEntityInstantiation:
     @pytest.mark.parametrize("set_default", [None, "nice"])
     def test_serialized_job(self, fx_faker: Faker, set_default: str|None) -> None:
         kwargs = {
-            "job_type": fx_faker.name(),
+            "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body_serialized": fx_faker.job_body_serialized(),
             "nice": fx_faker.pyint(),
@@ -77,7 +77,7 @@ class TestEntityInstantiation:
     @pytest.mark.parametrize("set_default", [None, "nice"])
     def test_new_job_quest(self, fx_faker: Faker, set_default: str|None) -> None:
         kwargs = {
-            "job_type": fx_faker.name(),
+            "job_type": fx_faker.job_type(),
             "job_body": fx_faker.job_body(),
             "nice": fx_faker.pyint(),
         }

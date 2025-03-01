@@ -10,6 +10,9 @@ class Faker(_Faker):
         return self.random_element([
             bytes(self.random_int(1, 30)) for _ in range(20)
         ])
+    
+    def job_type(self):
+        return self.name()
 
 @pytest.fixture
 def fx_faker():
