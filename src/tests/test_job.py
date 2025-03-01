@@ -1,5 +1,4 @@
 import json
-from typing import BinaryIO
 import unittest
 
 import pytest
@@ -13,18 +12,9 @@ from qqabc.types import (
     NewJobRequest,
     SerializedJob,
     SerializedJobBody,
+    StatusEnum,
 )
-
-
-def test_job_body_exists() -> None:
-    job_body = object()
-    assert job_body is not None
-
-
-def test_job_serialized_body_exists() -> None:
-    serialized_job_body = bytes()
-    assert serialized_job_body is not None
-
+from tests.fixtures.faker import Faker
 
 def test_job_serializer_can_be_instantiated() -> None:
     class MyJobSerializer(JobSerializer):
@@ -59,11 +49,28 @@ def test_job_serializer_should_implement_deserialize() -> None:
     assert e.match("Can't instantiate abstract class "
                    "MyJobSerializer with abstract method deserialize")
 
-# def _test_job_status_instantiated() -> None:
-    
-#     job_status = JobStatus(
+def test_status_enum() -> None:
+    assert StatusEnum.INITIAL == "INITIAL"
+    assert StatusEnum.PENDING == "PENDING"
+    assert StatusEnum.RUNNING == "RUNNING"
+    assert StatusEnum.COMPLETED == "COMPLETED"
+    assert StatusEnum.FAILED == "FAILED"
 
-#     )
+def test_job_status_instantiated(fx_faker: Faker) -> None:
+    job_status = JobStatus(
+        status_id=(status_id:=fx_faker.uuid4()),
+        job_id=(job_id:=fx_faker.uuid4()),
+        issue_time=(issue_time:=fx_faker.date_time()),
+        status=(status:=fx_faker.random_element(StatusEnum)),
+        detail=(detail:=fx_faker.sentence()),
+        result=(result:=fx_faker.pyint()),
+    )
+    assert job_status.status_id == status_id
+    assert job_status.job_id == job_id
+    assert job_status.issue_time == issue_time
+    assert job_status.status == status
+    assert job_status.detail == detail
+    assert job_status.result == result
 
 class TestJobSerializer(unittest.TestCase):
     def setUp(self) -> None:

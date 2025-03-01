@@ -1,15 +1,15 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Any
+from typing import Any, NewType
 import datetime as dt
 
 class StrEnum(str, Enum):
     pass
 
-JobBody = Any
-SerializedJobBody = bytes
-Result = Any
-SerializedResult = bytes
+JobBody = NewType("JobBody", Any)
+SerializedJobBody = NewType("SerializedJobBody", bytes)
+Result = NewType("Result", Any)
+SerializedResult = NewType("SerializedResult", bytes)
 
 class Job:
     def __init__(self, *,
@@ -35,7 +35,11 @@ class SerializedJob:
         self.nice = nice
 
 class StatusEnum(StrEnum):
-    ...
+    INITIAL = "INITIAL"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 class JobStatus:
     def __init__(self, *,
