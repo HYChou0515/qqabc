@@ -1,34 +1,72 @@
+from __future__ import annotations
+
+from typing import Literal
+
 import pytest
 from faker import Faker as _Faker
 
-from qqabc.types import JobBody, NewJobRequest
+from qqabc.types import (
+    QQABC,
+    JobBody,
+    NewJobRequest,
+    NewJobStatusRequest,
+    Result,
+    SerializedJobBody,
+    StatusEnum,
+)
 
 
 class Faker(_Faker):
-    def job_body(self):
-        return self.random_element([
-            object() for _ in range(20)
-        ])
+    def job_body(self) -> JobBody:
+        return self.random_element([JobBody(object()) for _ in range(20)])
 
-    def job_body_serialized(self):
-        return self.random_element([
-            bytes(self.random_int(1, 30)) for _ in range(20)
-        ])
+    def job_result(self) -> Result:
+        return self.random_element([Result(object()) for _ in range(20)])
 
-    def job_type(self):
+    def job_body_serialized(self) -> SerializedJobBody:
+        return SerializedJobBody(
+            self.random_element([bytes(self.random_int(1, 30)) for _ in range(20)])
+        )
+
+    def job_type(self) -> str:
         return self.name()
 
-    def new_job_request(self, *, job_type: str = ..., job_body: JobBody = ...):
-        if job_body is ...:
-            job_body = self.job_body()
-        if job_type is ...:
-            job_type = self.job_type()
+    def new_job_request(
+        self,
+        *,
+        job_type: str = ...,  # type: ignore[assignment]
+        job_body: JobBody = ...,  # type: ignore[assignment]
+    ) -> NewJobRequest:
+        job_body_ = self.job_body() if job_body is ... else job_body
+        job_type_ = self.job_type() if job_type is ... else job_type
         return NewJobRequest(
-            job_type=job_type,
-            job_body=job_body,
+            job_type=job_type_,
+            job_body=job_body_,
+        )
+
+    def status_enum(self) -> StatusEnum:
+        return self.random_element(StatusEnum)
+
+    def new_status_request(
+        self,
+        *,
+        job_id: str = ...,  # type: ignore[assignment]
+        status: StatusEnum = ...,  # type: ignore[assignment]
+        detail: str = ...,  # type: ignore[assignment]
+        result: Result | Literal[QQABC.NO_RESULT] = ...,  # type: ignore[assignment]
+    ) -> NewJobStatusRequest:
+        job_id_ = self.uuid4() if job_id is ... else job_id
+        status_ = self.status_enum() if status is ... else status
+        detail_ = self.sentence() if detail is ... else detail
+        result_ = self.job_result() if result is ... else result
+        return NewJobStatusRequest(
+            job_id=job_id_,
+            status=status_,
+            detail=detail_,
+            result=result_,
         )
 
 
 @pytest.fixture
-def fx_faker():
+def fx_faker() -> Faker:
     return Faker()

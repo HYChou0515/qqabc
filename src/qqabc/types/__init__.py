@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import datetime as dt
 from enum import Enum
-from typing import Any, NewType
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NewType
+
+if TYPE_CHECKING:
+    import datetime as dt
 
 
 class StrEnum(str, Enum):
@@ -17,18 +19,31 @@ class StatusEnum(StrEnum):
     FAILED = "FAILED"
 
 
-JobBody = NewType("JobBody", Any)
+JobBody = NewType("JobBody", Any)  # type: ignore[valid-newtype]
 SerializedJobBody = NewType("SerializedJobBody", bytes)
-Result = NewType("Result", Any)
+Result = NewType("Result", Any)  # type: ignore[valid-newtype]
 SerializedResult = NewType("SerializedResult", bytes)
 
 
-class Job:
-    def __init__(self, *,
-                 job_type: str,
-                 job_id: str,
-                 job_body: JobBody,
-                 nice: int = 0) -> None:
+class SupportEq:  # noqa: PLW1641: hash should not be implemented, there's no need to put this object into a set
+    def __eq__(self, others: object) -> bool:
+        if not isinstance(others, self.__class__):
+            return NotImplemented
+        return self.__dict__ == others.__dict__
+
+
+class SupportRepr:
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}"
+            f"({', '.join([f'{k}={v!r}' for k, v in self.__dict__.items()])})"
+        )
+
+
+class Job(SupportEq, SupportRepr):
+    def __init__(
+        self, *, job_type: str, job_id: str, job_body: JobBody, nice: int = 0
+    ) -> None:
         self.job_type = job_type
         self.job_id = job_id
         self.job_body = job_body
@@ -36,41 +51,47 @@ class Job:
 
 
 class Singleton(type):
-    _instances = {}
+    _instances: ClassVar[dict] = {}
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
         if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
 
-class NoResult(metaclass=Singleton):
-    pass
+class QQABC(Enum):
+    NO_RESULT = 1
 
 
-NO_RESULT = NoResult()
+NO_RESULT = QQABC.NO_RESULT
 
 
-class SerializedJob:
-    def __init__(self, *,
-                 job_type: str,
-                 job_id: str,
-                 job_body_serialized: SerializedJobBody,
-                 nice: int = 0) -> None:
+class SerializedJob(SupportEq, SupportRepr):
+    def __init__(
+        self,
+        *,
+        job_type: str,
+        job_id: str,
+        job_body_serialized: SerializedJobBody,
+        nice: int = 0,
+    ) -> None:
         self.job_type = job_type
         self.job_id = job_id
         self.job_body_serialized = job_body_serialized
         self.nice = nice
 
 
-class JobStatus:
-    def __init__(self, *,
-                 status_id: str,
-                 job_id: str,
-                 issue_time: dt.datetime,
-                 status: StatusEnum,
-                 detail: str,
-                 result: Result | NoResult) -> None:
+class JobStatus(SupportEq, SupportRepr):
+    def __init__(  # noqa: PLR0913
+        self,
+        *,
+        status_id: str,
+        job_id: str,
+        issue_time: dt.datetime,
+        status: StatusEnum,
+        detail: str,
+        result: Result | Literal[QQABC.NO_RESULT],
+    ) -> None:
         self.status_id = status_id
         self.job_id = job_id
         self.issue_time = issue_time
@@ -80,13 +101,16 @@ class JobStatus:
 
 
 class SerializedJobStatus:
-    def __init__(self, *,
-                 status_id: str,
-                 job_id: str,
-                 issue_time: dt.datetime,
-                 status: StatusEnum,
-                 detail: str,
-                 result_serialized: SerializedResult | None) -> None:
+    def __init__(  # noqa: PLR0913
+        self,
+        *,
+        status_id: str,
+        job_id: str,
+        issue_time: dt.datetime,
+        status: StatusEnum,
+        detail: str,
+        result_serialized: SerializedResult | None,
+    ) -> None:
         self.status_id = status_id
         self.job_id = job_id
         self.issue_time = issue_time
@@ -96,12 +120,15 @@ class SerializedJobStatus:
 
 
 class NewJobStatusRequest:
-    def __init__(self, *,
-                 job_id: str,
-                 status: StatusEnum,
-                 issue_time: dt.datetime | None = None,
-                 detail: str,
-                 result: Result | NoResult = NO_RESULT) -> None:
+    def __init__(
+        self,
+        *,
+        job_id: str,
+        status: StatusEnum,
+        issue_time: dt.datetime | None = None,
+        detail: str,
+        result: Result | Literal[QQABC.NO_RESULT] = NO_RESULT,
+    ) -> None:
         self.job_id = job_id
         self.issue_time = issue_time
         self.status = status
@@ -110,10 +137,7 @@ class NewJobStatusRequest:
 
 
 class NewJobRequest:
-    def __init__(self, *,
-                 job_type: str,
-                 job_body: JobBody,
-                 nice: int = 0) -> None:
+    def __init__(self, *, job_type: str, job_body: JobBody, nice: int = 0) -> None:
         self.job_type = job_type
         self.job_body = job_body
         self.nice = nice
