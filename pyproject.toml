@@ -14,12 +14,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
+cli = [
+    "typer>=0.15.2",
+]
 dev = [
     "faker>=36.1.1",
     "freezegun>=1.5.1",
     "mypy>=1.15.0",
     "pytest>=8.3.4",
     "pytest-freezegun>=0.4.2",
+    "pytest-mock>=3.14.0",
     "ruff>=0.9.7",
 ]
 

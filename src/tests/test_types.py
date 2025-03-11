@@ -12,6 +12,7 @@ from qqabc.types import (
     JobStatus,
     NewJobRequest,
     NewJobStatusRequest,
+    NewSerializedJobRequest,
     Result,
     SerializedJob,
     SerializedJobBody,
@@ -272,6 +273,23 @@ class TestEntityInstantiation:
         assert new_job_request.job_type == kwargs["job_type"]
         assert new_job_request.job_body == kwargs["job_body"]
         assert new_job_request.nice == kwargs.get("nice", 0)
+
+    @pytest.mark.parametrize("set_default", [None, "nice"])
+    def test_new_serialized_job_quest(
+        self, fx_faker: Faker, set_default: str | None
+    ) -> None:
+        kwargs = {
+            "job_type": fx_faker.job_type(),
+            "job_body_serialized": fx_faker.job_body_serialized(),
+            "nice": fx_faker.pyint(),
+        }
+        if set_default == "nice":
+            del kwargs["nice"]
+
+        request = NewSerializedJobRequest(**kwargs)  # type: ignore[arg-type]
+        assert request.job_type == kwargs["job_type"]
+        assert request.job_body_serialized == kwargs["job_body_serialized"]
+        assert request.nice == kwargs.get("nice", 0)
 
     @pytest.mark.parametrize("set_default", [None, "issue_time"])
     def test_new_job_status_request(

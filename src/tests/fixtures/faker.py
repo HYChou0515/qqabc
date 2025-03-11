@@ -10,6 +10,7 @@ from qqabc.types import (
     JobBody,
     NewJobRequest,
     NewJobStatusRequest,
+    NewSerializedJobRequest,
     Result,
     SerializedJobBody,
     StatusEnum,
@@ -42,6 +43,23 @@ class Faker(_Faker):
         return NewJobRequest(
             job_type=job_type_,
             job_body=job_body_,
+        )
+
+    def new_serialized_job_request(
+        self,
+        *,
+        job_type: str = ...,  # type: ignore[assignment]
+        job_body_serialized: JobBody = ...,  # type: ignore[assignment]
+    ) -> NewSerializedJobRequest:
+        job_body_serialized_ = (
+            self.job_body_serialized()
+            if job_body_serialized is ...
+            else job_body_serialized
+        )
+        job_type_ = self.job_type() if job_type is ... else job_type
+        return NewSerializedJobRequest(
+            job_type=job_type_,
+            job_body_serialized=job_body_serialized_,
         )
 
     def status_enum(self) -> StatusEnum:

@@ -16,6 +16,7 @@ from qqabc.types import (
     NewJobRequest,
     NewJobStatusRequest,
     Result,
+    SerializedJob,
     SerializedJobBody,
     SerializedResult,
     StatusEnum,
@@ -199,6 +200,12 @@ class TestJobController:
         assert job.job_type == req.job_type
         return job
 
+    def assert_sjob_type(self, sjob: SerializedJob) -> None:
+        assert isinstance(sjob, SerializedJob)
+        assert sjob.job_type == self.my_job_type
+        assert isinstance(sjob.job_id, str)
+        assert isinstance(sjob.nice, int)
+
     def assert_job_type(self, job: Job) -> None:
         assert isinstance(job, Job)
         assert job.job_type == self.my_job_type
@@ -230,6 +237,19 @@ class TestJobController:
     def test_get_next_job_returns_the_job(self) -> None:
         job = self._add_new_job_request_of_my_job_1()
         returned = self.job_controller.get_next_job(job_type=self.my_job_type)
+        self.assert_job_type(job)
+        assert returned.nice == 0
+        assert returned.job_id == job.job_id
+
+    def test_add_new_serialized_job(self) -> None:
+        job = self.job_controller.add_job(self.fx_faker.new_serialized_job_request())
+        assert job is not None
+
+    def test_get_next_sjob_returns_the_sjob(self) -> None:
+        job = self._add_new_job_request_of_my_job_1()
+        returned = self.job_controller.get_next_job(
+            job_type=self.my_job_type, deserialize=False
+        )
         self.assert_job_type(job)
         assert returned.nice == 0
         assert returned.job_id == job.job_id

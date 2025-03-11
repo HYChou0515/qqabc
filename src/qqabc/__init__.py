@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import datetime as dt
 import uuid
+from typing import Literal
 
 from typing_extensions import overload
 
@@ -14,6 +15,7 @@ from qqabc.types import (
     JobStatus,
     NewJobRequest,
     NewJobStatusRequest,
+    NewSerializedJobRequest,
     Result,
     SerializedJob,
     SerializedJobBody,
@@ -150,15 +152,37 @@ class JobQueueController:
         )
         return job
 
+    @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:
+        pass
+
+    @overload
+    def add_job(self, new_job_request: NewSerializedJobRequest) -> SerializedJob:
+        pass
+
+    def add_job(
+        self, new_job_request: NewJobRequest | NewSerializedJobRequest
+    ) -> Job | SerializedJob:
+        if isinstance(new_job_request, NewJobRequest):
+            return self._add_job(new_job_request)
+        return self._add_serialized_job(new_job_request)
+
+    def _add_serialized_job(self, req: NewSerializedJobRequest) -> SerializedJob:
+        sjob = SerializedJob(
+            job_id=uuid.uuid4().hex,
+            job_type=req.job_type,
+            job_body_serialized=req.job_body_serialized,
+        )
+        self.job_dao.add_job(sjob)
+        return sjob
+
+    def _add_job(self, req: NewJobRequest) -> Job:
         job = Job(
             job_id=uuid.uuid4().hex,
-            job_type=new_job_request.job_type,
-            job_body=new_job_request.job_body,
+            job_type=req.job_type,
+            job_body=req.job_body,
         )
-        serializer = self.job_serializer_registry.get_job_serializer(
-            new_job_request.job_type
-        )
+        serializer = self.job_serializer_registry.get_job_serializer(req.job_type)
         sjob = SerializedJob(
             job_id=job.job_id,
             job_type=job.job_type,
@@ -167,10 +191,29 @@ class JobQueueController:
         self.job_dao.add_job(sjob)
         return job
 
+    @overload
     def get_next_job(self, job_type: str) -> Job:
-        sjob = self.job_dao.pop_largest_priority_job(job_type)
-        if sjob is None:
-            raise EmptyQueueError(f"No job with job type: {job_type}")
+        pass
+
+    @overload
+    def get_next_job(self, job_type: str, *, deserialize: Literal[True]) -> Job:
+        pass
+
+    @overload
+    def get_next_job(
+        self, job_type: str, *, deserialize: Literal[False]
+    ) -> SerializedJob:
+        pass
+
+    def get_next_job(
+        self, job_type: str, *, deserialize: bool = True
+    ) -> Job | SerializedJob:
+        if deserialize:
+            return self._get_next_job(job_type)
+        return self._get_next_sjob(job_type)
+
+    def _get_next_job(self, job_type: str) -> Job:
+        sjob = self._get_next_sjob(job_type)
         serializer = self.job_serializer_registry.get_job_serializer(sjob.job_type)
         job = Job(
             job_id=sjob.job_id,
@@ -178,6 +221,12 @@ class JobQueueController:
             job_body=serializer.deserialize(sjob.job_body_serialized),
         )
         return job
+
+    def _get_next_sjob(self, job_type: str) -> SerializedJob:
+        sjob = self.job_dao.pop_largest_priority_job(job_type)
+        if sjob is None:
+            raise EmptyQueueError(f"No job with job type: {job_type}")
+        return sjob
 
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
