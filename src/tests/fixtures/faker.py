@@ -13,6 +13,7 @@ from qqabc.types import (
     NewSerializedJobRequest,
     Result,
     SerializedJobBody,
+    SerializedResult,
     StatusEnum,
 )
 
@@ -21,12 +22,23 @@ class Faker(_Faker):
     def job_body(self) -> JobBody:
         return self.random_element([JobBody(object()) for _ in range(20)])
 
-    def job_result(self) -> Result:
-        return self.random_element([Result(object()) for _ in range(20)])
+    def uuid4_hex(self) -> str:
+        return self.uuid4(cast_to=lambda x: x.hex)
+
+    def job_id(self) -> str:
+        return self.uuid4_hex()
 
     def job_body_serialized(self) -> SerializedJobBody:
         return SerializedJobBody(
-            self.random_element([bytes(self.random_int(1, 30)) for _ in range(20)])
+            self.random_element([self.json_bytes() for _ in range(20)])
+        )
+
+    def job_result(self) -> Result:
+        return self.random_element([Result(object()) for _ in range(20)])
+
+    def job_result_serialized(self) -> SerializedResult:
+        return self.random_element(
+            [SerializedResult(self.json_bytes()) for _ in range(20)]
         )
 
     def job_type(self) -> str:

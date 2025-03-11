@@ -13,6 +13,7 @@ from qqabc.types import (
     NewJobRequest,
     NewJobStatusRequest,
     NewSerializedJobRequest,
+    NewSerializedJobStatusRequest,
     Result,
     SerializedJob,
     SerializedJobBody,
@@ -310,6 +311,27 @@ class TestEntityInstantiation:
         assert new_job_status_request.status == kwargs["status"]
         assert new_job_status_request.detail == kwargs["detail"]
         assert new_job_status_request.result == kwargs["result"]
+        assert new_job_status_request.issue_time == kwargs.get("issue_time")
+
+    @pytest.mark.parametrize("set_default", [None, "issue_time"])
+    def test_new_serialized_job_status_request(
+        self, fx_faker: Faker, set_default: str | None
+    ) -> None:
+        kwargs = {
+            "job_id": fx_faker.uuid4(),
+            "status": fx_faker.random_element(StatusEnum),
+            "issue_time": fx_faker.date_time(),
+            "detail": fx_faker.sentence(),
+            "result_serialized": fx_faker.job_result_serialized(),
+        }
+        if set_default == "issue_time":
+            del kwargs["issue_time"]
+
+        new_job_status_request = NewSerializedJobStatusRequest(**kwargs)  # type: ignore[arg-type]
+        assert new_job_status_request.job_id == kwargs["job_id"]
+        assert new_job_status_request.status == kwargs["status"]
+        assert new_job_status_request.detail == kwargs["detail"]
+        assert new_job_status_request.result_serialized == kwargs["result_serialized"]
         assert new_job_status_request.issue_time == kwargs.get("issue_time")
 
 

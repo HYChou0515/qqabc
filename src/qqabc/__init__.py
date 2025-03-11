@@ -16,6 +16,7 @@ from qqabc.types import (
     NewJobRequest,
     NewJobStatusRequest,
     NewSerializedJobRequest,
+    NewSerializedJobStatusRequest,
     Result,
     SerializedJob,
     SerializedJobBody,
@@ -89,6 +90,9 @@ class JobDao:
         self._hist = _hist
         self._status_hist = _job_status
 
+    def job_exists(self, job_id: str) -> bool:
+        return job_id in self._queue
+
     def add_job(self, s_job: SerializedJob) -> None:
         self._queue[s_job.job_id] = s_job
 
@@ -140,17 +144,50 @@ class JobQueueController:
         self.job_dao = JobDao()
         self.job_serializer_registry = JobSerializerRegistry()
 
-    def get_job(self, job_id: str) -> Job:
-        sjob = self.job_dao.get_job(job_id)
-        if sjob is None:
+    def _check_job_exists(self, job_id: str) -> None:
+        if not self.job_dao.job_exists(job_id):
             raise KeyError(job_id)
-        serializer = self.job_serializer_registry.get_job_serializer(sjob.job_type)
+
+    def _get_serializer(self, job_type: str) -> JobSerializer:
+        return self.job_serializer_registry.get_job_serializer(job_type)
+
+    def _deserialize_job(self, sjob: SerializedJob) -> Job:
+        serializer = self._get_serializer(sjob.job_type)
         job = Job(
             job_id=sjob.job_id,
             job_type=sjob.job_type,
             job_body=serializer.deserialize(sjob.job_body_serialized),
         )
         return job
+
+    def _serialize_job(self, job: Job) -> SerializedJob:
+        serializer = self._get_serializer(job.job_type)
+        sjob = SerializedJob(
+            job_id=job.job_id,
+            job_type=job.job_type,
+            job_body_serialized=serializer.serialize(job.job_body),
+        )
+        return sjob
+
+    @overload
+    def get_job(self, job_id: str) -> Job:
+        pass
+
+    @overload
+    def get_job(self, job_id: str, *, deserialize: Literal[True] = True) -> Job:
+        pass
+
+    @overload
+    def get_job(self, job_id: str, *, deserialize: Literal[False]) -> SerializedJob:
+        pass
+
+    def get_job(self, job_id: str, *, deserialize: bool = True) -> Job | SerializedJob:
+        sjob = self.job_dao.get_job(job_id)
+        if sjob is None:
+            raise KeyError(job_id)
+        if deserialize:
+            return self._deserialize_job(sjob)
+        return sjob
 
     @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:
@@ -182,12 +219,7 @@ class JobQueueController:
             job_type=req.job_type,
             job_body=req.job_body,
         )
-        serializer = self.job_serializer_registry.get_job_serializer(req.job_type)
-        sjob = SerializedJob(
-            job_id=job.job_id,
-            job_type=job.job_type,
-            job_body_serialized=serializer.serialize(job.job_body),
-        )
+        sjob = self._serialize_job(job)
         self.job_dao.add_job(sjob)
         return job
 
@@ -214,13 +246,7 @@ class JobQueueController:
 
     def _get_next_job(self, job_type: str) -> Job:
         sjob = self._get_next_sjob(job_type)
-        serializer = self.job_serializer_registry.get_job_serializer(sjob.job_type)
-        job = Job(
-            job_id=sjob.job_id,
-            job_type=sjob.job_type,
-            job_body=serializer.deserialize(sjob.job_body_serialized),
-        )
-        return job
+        return self._deserialize_job(sjob)
 
     def _get_next_sjob(self, job_type: str) -> SerializedJob:
         sjob = self.job_dao.pop_largest_priority_job(job_type)
@@ -228,43 +254,19 @@ class JobQueueController:
             raise EmptyQueueError(f"No job with job type: {job_type}")
         return sjob
 
-    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
-        status = JobStatus(
-            status_id=uuid.uuid4().hex,
-            job_id=request.job_id,
-            issue_time=issue_time,
-            status=request.status,
-            detail=request.detail,
-            result=request.result,
-        )
+    def _get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str:
+        if job is not None:
+            return job.job_type
+        return self.get_job(job_id, deserialize=False).job_type
 
-        job = self.get_job(request.job_id)
-        serializer = self.job_serializer_registry.get_job_serializer(job.job_type)
-        if request.result is not NO_RESULT:
-            serialized_result = serializer.serialize_result(request.result)
-        else:
-            serialized_result = None
-        s_status = SerializedJobStatus(
-            status_id=status.status_id,
-            job_id=status.job_id,
-            issue_time=status.issue_time,
-            status=status.status,
-            detail=status.detail,
-            result_serialized=serialized_result,
-        )
-        self.job_dao.add_status(s_status)
-        return status
-
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        job = self.get_job(job_id)
-        s_status = self.job_dao.get_latest_status(job_id)
-        if s_status is None:
-            return s_status
-        serializer = self.job_serializer_registry.get_job_serializer(job.job_type)
+    def _deserialize_status(
+        self, s_status: SerializedJobStatus, *, job: Job | SerializedJob | None = None
+    ) -> JobStatus:
         if s_status.result_serialized is None:
             result = NO_RESULT
         else:
+            job_type = self._get_job_type(s_status.job_id, job)
+            serializer = self._get_serializer(job_type)
             result = serializer.deserialize_result(s_status.result_serialized)
         return JobStatus(
             status_id=s_status.status_id,
@@ -274,3 +276,95 @@ class JobQueueController:
             detail=s_status.detail,
             result=result,
         )
+
+    def _serialize_status(
+        self, status: JobStatus, *, job: Job | None = None
+    ) -> SerializedJobStatus:
+        if status.result is NO_RESULT:
+            serialized_result = None
+        else:
+            job_type = self._get_job_type(status.job_id, job)
+            serializer = self._get_serializer(job_type)
+            serialized_result = serializer.serialize_result(status.result)
+        return SerializedJobStatus(
+            status_id=status.status_id,
+            job_id=status.job_id,
+            issue_time=status.issue_time,
+            status=status.status,
+            detail=status.detail,
+            result_serialized=serialized_result,
+        )
+
+    def _add_serialized_job_status(
+        self, request: NewSerializedJobStatusRequest
+    ) -> SerializedJobStatus:
+        self._check_job_exists(request.job_id)
+        issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
+        s_status = SerializedJobStatus(
+            status_id=uuid.uuid4().hex,
+            job_id=request.job_id,
+            issue_time=issue_time,
+            status=request.status,
+            detail=request.detail,
+            result_serialized=request.result_serialized,
+        )
+        self.job_dao.add_status(s_status)
+        return s_status
+
+    def _add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
+        issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
+        status = JobStatus(
+            status_id=uuid.uuid4().hex,
+            job_id=request.job_id,
+            issue_time=issue_time,
+            status=request.status,
+            detail=request.detail,
+            result=request.result,
+        )
+        s_status = self._serialize_status(status)
+        self.job_dao.add_status(s_status)
+        return status
+
+    @overload
+    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
+        pass
+
+    @overload
+    def add_job_status(
+        self, request: NewSerializedJobStatusRequest
+    ) -> SerializedJobStatus:
+        pass
+
+    def add_job_status(
+        self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
+    ) -> JobStatus | SerializedJobStatus:
+        if isinstance(request, NewJobStatusRequest):
+            return self._add_job_status(request)
+        return self._add_serialized_job_status(request)
+
+    @overload
+    def get_latest_status(self, job_id: str) -> JobStatus | None:
+        pass
+
+    @overload
+    def get_latest_status(
+        self, job_id: str, *, deserialize: Literal[True]
+    ) -> JobStatus | None:
+        pass
+
+    @overload
+    def get_latest_status(
+        self, job_id: str, *, deserialize: Literal[False]
+    ) -> SerializedJobStatus | None:
+        pass
+
+    def get_latest_status(
+        self, job_id: str, *, deserialize: bool = True
+    ) -> JobStatus | SerializedJobStatus | None:
+        job = self.get_job(job_id, deserialize=False)
+        s_status = self.job_dao.get_latest_status(job_id)
+        if s_status is None:
+            return None
+        if deserialize:
+            return self._deserialize_status(s_status, job=job)
+        return s_status

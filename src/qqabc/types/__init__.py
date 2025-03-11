@@ -119,7 +119,22 @@ class SerializedJobStatus:
         self.result_serialized = result_serialized
 
 
-class NewJobStatusRequest:
+class BaseNewJobStatusRequest:
+    def __init__(
+        self,
+        *,
+        job_id: str,
+        issue_time: dt.datetime | None = None,
+        status: StatusEnum,
+        detail: str,
+    ) -> None:
+        self.job_id = job_id
+        self.issue_time = issue_time
+        self.status = status
+        self.detail = detail
+
+
+class NewJobStatusRequest(BaseNewJobStatusRequest):
     def __init__(
         self,
         *,
@@ -129,11 +144,26 @@ class NewJobStatusRequest:
         detail: str,
         result: Result | Literal[QQABC.NO_RESULT] = NO_RESULT,
     ) -> None:
-        self.job_id = job_id
-        self.issue_time = issue_time
-        self.status = status
-        self.detail = detail
+        super().__init__(
+            job_id=job_id, issue_time=issue_time, status=status, detail=detail
+        )
         self.result = result
+
+
+class NewSerializedJobStatusRequest(BaseNewJobStatusRequest):
+    def __init__(
+        self,
+        *,
+        job_id: str,
+        status: StatusEnum,
+        issue_time: dt.datetime | None = None,
+        detail: str,
+        result_serialized: SerializedResult | None = None,
+    ) -> None:
+        super().__init__(
+            job_id=job_id, issue_time=issue_time, status=status, detail=detail
+        )
+        self.result_serialized = result_serialized
 
 
 class BaseNewJobRequest:
