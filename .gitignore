@@ -11,3 +11,6 @@ wheels/
 
 # drawio
 *.drawio.bkp
+
+# coverage
+.coverage*

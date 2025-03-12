@@ -3,16 +3,18 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pickle  # noqa: S403
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pytest
 
 from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
 from qqabc.types import (
     NO_RESULT,
+    QQABC,
     EmptyQueueError,
     Job,
     JobBody,
+    JobStatus,
     NewJobRequest,
     NewJobStatusRequest,
     Result,
@@ -279,7 +281,7 @@ class TestJobController:
 class TestJobConsumer:
     @pytest.fixture(autouse=True)
     def setup_method(self, fx_faker: Faker) -> None:
-        self.fx_faker = fx_faker
+        self.faker = fx_faker
         self.job_controller = JobQueueController()
 
         class MyJobSerializer(JobSerializer):
@@ -308,10 +310,10 @@ class TestJobConsumer:
         )
 
     def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
-        now = self.fx_faker.date_time(tzinfo=dt.timezone.utc)
+        now = self.faker.date_time(tzinfo=dt.timezone.utc)
         freezer.move_to(now)
         job = self.job_controller.add_job(
-            self.fx_faker.new_job_request(
+            self.faker.new_job_request(
                 job_type=self.job_type,
             )
         )
@@ -330,34 +332,80 @@ class TestJobConsumer:
 
     def test_get_job_result_of_non_existed_job(self) -> None:
         with pytest.raises(KeyError) as e:
-            self.job_controller.get_latest_status(job_id := self.fx_faker.uuid4())
+            self.job_controller.get_latest_status(job_id := self.faker.uuid4())
         assert e.match(job_id)
 
     def test_get_job_result_of_no_status_job(self) -> None:
         job = self.job_controller.add_job(
-            self.fx_faker.new_job_request(job_type=self.job_type)
+            self.faker.new_job_request(job_type=self.job_type)
         )
         assert self.job_controller.get_latest_status(job.job_id) is None
 
-    def test_get_job_result(self) -> None:
-        job = self.job_controller.add_job(
-            self.fx_faker.new_job_request(job_type=self.job_type)
-        )
-        status1 = self.job_controller.add_job_status(
-            self.fx_faker.new_status_request(job_id=job.job_id, result=Result(123))
-        )
+    def _assert_job_status_is_same_as_added(
+        self,
+        job: Job,
+        *,
+        with_result: bool,
+        multiple_statuses: int,
+        freezer: FrozenDateTimeFactory,
+    ) -> None:
+        result: Result | Literal[QQABC.NO_RESULT]
+        if with_result:
+            result = Result(self.faker.json())
+        else:
+            result = NO_RESULT
+        latest_status: tuple[dt.datetime | None, JobStatus | None] = None, None
+        for _ in range(multiple_statuses):
+            freezer.move_to(t := self.faker.date_time(tzinfo=dt.timezone.utc))
+            s = self.job_controller.add_job_status(
+                self.faker.new_status_request(job_id=job.job_id, result=result)
+            )
+            if latest_status[0] is None or latest_status[0] > t:
+                latest_status = t, s
+        status1 = latest_status[1]
         status2 = self.job_controller.get_latest_status(job.job_id)
         assert status2 is not None
+        if with_result:
+            assert status2.result == result
+        else:
+            assert status2.result == NO_RESULT
         assert status1 == status2
 
-    def test_add_job_status_no_result(self) -> None:
+    @pytest.mark.parametrize("with_result", [True, False])
+    @pytest.mark.parametrize("multiple_statuses", [1, 2])
+    def test_get_job_result(
+        self,
+        *,
+        with_result: bool,
+        multiple_statuses: int,
+        freezer: FrozenDateTimeFactory,
+    ) -> None:
         job = self.job_controller.add_job(
-            self.fx_faker.new_job_request(job_type=self.job_type)
+            self.faker.new_job_request(job_type=self.job_type)
         )
-        status1 = self.job_controller.add_job_status(
-            self.fx_faker.new_status_request(job_id=job.job_id, result=NO_RESULT)
+        self._assert_job_status_is_same_as_added(
+            job,
+            with_result=with_result,
+            multiple_statuses=multiple_statuses,
+            freezer=freezer,
         )
-        status2 = self.job_controller.get_latest_status(job.job_id)
-        assert status2 is not None
-        assert status2.result == NO_RESULT
-        assert status1 == status2
+
+    @pytest.mark.parametrize("with_result", [True, False])
+    @pytest.mark.parametrize("multiple_statuses", [1, 2])
+    def test_get_job_result_after_job_pop(
+        self,
+        *,
+        with_result: bool,
+        multiple_statuses: int,
+        freezer: FrozenDateTimeFactory,
+    ) -> None:
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(job_type=self.job_type)
+        )
+        self.job_controller.get_next_job(job_type=self.job_type)
+        self._assert_job_status_is_same_as_added(
+            job,
+            with_result=with_result,
+            multiple_statuses=multiple_statuses,
+            freezer=freezer,
+        )

@@ -28,31 +28,31 @@ from qqabc.types import (
 class JobSerializer(abc.ABC):
     @overload
     def serialize(self, job_body: JobBody) -> SerializedJobBody:
-        pass
+        raise NotImplementedError
 
     @overload
     def serialize(self, job_body: Result) -> SerializedResult:
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def serialize(
         self, job_body: JobBody | Result
     ) -> SerializedJobBody | SerializedResult:
-        pass
+        raise NotImplementedError
 
     @overload
     def deserialize(self, serialized: SerializedJobBody) -> JobBody:
-        pass
+        raise NotImplementedError
 
     @overload
     def deserialize(self, serialized: SerializedResult) -> Result:
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def deserialize(
         self, serialized: SerializedJobBody | SerializedResult
     ) -> JobBody | Result:
-        pass
+        raise NotImplementedError
 
     def serialize_result(self, result: Result) -> SerializedResult:
         return SerializedResult(self.serialize(result))
@@ -74,9 +74,6 @@ class JobSerializerRegistry:
         if job_type not in self._job_serializers:
             raise KeyError(f"Job type {job_type} not found in registry")
         return self._job_serializers[job_type]
-
-    def reset(self) -> None:
-        self._job_serializers = {}
 
 
 _queue: dict[str, SerializedJob] = {}  # Singleton
@@ -122,7 +119,7 @@ class JobDao:
         sh = self._status_hist[job_id]
         if len(sh) == 0:
             return None
-        return self._status_hist[job_id][0]
+        return self._status_hist[job_id][-1]
 
     def pop_largest_priority_job(self, job_type: str) -> SerializedJob | None:
         jobs_with_type = [
@@ -134,9 +131,6 @@ class JobDao:
         self._hist[sjob.job_id] = self._queue[sjob.job_id]
         del self._queue[sjob.job_id]
         return sjob
-
-    def drop_all_jobs(self) -> None:
-        self._queue.clear()
 
 
 class JobQueueController:
@@ -171,15 +165,15 @@ class JobQueueController:
 
     @overload
     def get_job(self, job_id: str) -> Job:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_job(self, job_id: str, *, deserialize: Literal[True] = True) -> Job:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_job(self, job_id: str, *, deserialize: Literal[False]) -> SerializedJob:
-        pass
+        raise NotImplementedError
 
     def get_job(self, job_id: str, *, deserialize: bool = True) -> Job | SerializedJob:
         sjob = self.job_dao.get_job(job_id)
@@ -191,11 +185,11 @@ class JobQueueController:
 
     @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:
-        pass
+        raise NotImplementedError
 
     @overload
     def add_job(self, new_job_request: NewSerializedJobRequest) -> SerializedJob:
-        pass
+        raise NotImplementedError
 
     def add_job(
         self, new_job_request: NewJobRequest | NewSerializedJobRequest
@@ -225,17 +219,17 @@ class JobQueueController:
 
     @overload
     def get_next_job(self, job_type: str) -> Job:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_next_job(self, job_type: str, *, deserialize: Literal[True]) -> Job:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_next_job(
         self, job_type: str, *, deserialize: Literal[False]
     ) -> SerializedJob:
-        pass
+        raise NotImplementedError
 
     def get_next_job(
         self, job_type: str, *, deserialize: bool = True
@@ -327,13 +321,13 @@ class JobQueueController:
 
     @overload
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        pass
+        raise NotImplementedError
 
     @overload
     def add_job_status(
         self, request: NewSerializedJobStatusRequest
     ) -> SerializedJobStatus:
-        pass
+        raise NotImplementedError
 
     def add_job_status(
         self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
@@ -344,19 +338,19 @@ class JobQueueController:
 
     @overload
     def get_latest_status(self, job_id: str) -> JobStatus | None:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[True]
     ) -> JobStatus | None:
-        pass
+        raise NotImplementedError
 
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[False]
     ) -> SerializedJobStatus | None:
-        pass
+        raise NotImplementedError
 
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True

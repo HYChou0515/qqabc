@@ -1,7 +1,13 @@
+coverage: test-func
+	. .venv/bin/activate && \
+	coverage html
+	
 test: test-func test-style
 test-func:
-	. .venv/bin/activate && cd src && \
-	pytest tests
+	. .venv/bin/activate && \
+	rm -rf htmlcov .coverage && \
+	coverage run -m pytest src/tests && \
+	coverage report -m
 test-style:
 	. .venv/bin/activate && cd src && \
 	mypy qqabc tests && \
