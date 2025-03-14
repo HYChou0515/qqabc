@@ -2,7 +2,7 @@ coverage: test-func
 	. .venv/bin/activate && \
 	coverage html
 	
-test: test-func test-style
+test: test-style test-func 
 test-func:
 	. .venv/bin/activate && \
 	rm -rf htmlcov .coverage && \

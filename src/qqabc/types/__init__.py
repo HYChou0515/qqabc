@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NewType
+from typing import TYPE_CHECKING, Any, Generic, Literal, NewType, TypeVar
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -19,10 +19,15 @@ class StatusEnum(StrEnum):
     FAILED = "FAILED"
 
 
-JobBody = NewType("JobBody", Any)  # type: ignore[valid-newtype]
+JobBody = NewType("JobBody", object)
 SerializedJobBody = NewType("SerializedJobBody", bytes)
-Result = NewType("Result", Any)  # type: ignore[valid-newtype]
+Result = NewType("Result", object)
 SerializedResult = NewType("SerializedResult", bytes)
+
+GJobBody = TypeVar("GJobBody", bound=Any)
+GSerializedJobBody = TypeVar("GSerializedJobBody", bound=SerializedJobBody)
+GResult = TypeVar("GResult", bound=Any)
+GSerializedResult = TypeVar("GSerializedResult", bound=SerializedResult)
 
 
 class SupportEq:  # noqa: PLW1641: hash should not be implemented, there's no need to put this object into a set
@@ -40,23 +45,14 @@ class SupportRepr:
         )
 
 
-class Job(SupportEq, SupportRepr):
+class Job(SupportEq, SupportRepr, Generic[GJobBody]):
     def __init__(
-        self, *, job_type: str, job_id: str, job_body: JobBody, nice: int = 0
+        self, *, job_type: str, job_id: str, job_body: GJobBody, nice: int = 0
     ) -> None:
         self.job_type = job_type
         self.job_id = job_id
         self.job_body = job_body
         self.nice = nice
-
-
-class Singleton(type):
-    _instances: ClassVar[dict] = {}
-
-    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-        if cls not in cls._instances:
-            cls._instances[cls] = super().__call__(*args, **kwargs)
-        return cls._instances[cls]
 
 
 class QQABC(Enum):

@@ -111,3 +111,5 @@ def get(resource: Resource, job_id: str):
     if resource == Resource.result:
         s_status = _get_result(job_id)
         sys.stdout.buffer.write(s_status.result_serialized)
+        return
+    raise NotImplementedError

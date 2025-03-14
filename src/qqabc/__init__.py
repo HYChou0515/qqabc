@@ -3,62 +3,65 @@ from __future__ import annotations
 import abc
 import datetime as dt
 import uuid
-from typing import Literal
+from typing import Any, Generic, Literal
 
 from typing_extensions import overload
 
 from qqabc.types import (
     NO_RESULT,
+    QQABC,
     EmptyQueueError,
+    GJobBody,
+    GResult,
+    GSerializedJobBody,
+    GSerializedResult,
     Job,
-    JobBody,
     JobStatus,
     NewJobRequest,
     NewJobStatusRequest,
     NewSerializedJobRequest,
     NewSerializedJobStatusRequest,
-    Result,
     SerializedJob,
-    SerializedJobBody,
     SerializedJobStatus,
-    SerializedResult,
 )
 
 
-class JobSerializer(abc.ABC):
+class JobSerializer(
+    abc.ABC, Generic[GJobBody, GSerializedJobBody, GResult, GSerializedResult]
+):
     @overload
-    def serialize(self, job_body: JobBody) -> SerializedJobBody:
-        raise NotImplementedError
+    def serialize(self, job_body: GJobBody) -> GSerializedJobBody:
+        pass
 
     @overload
-    def serialize(self, job_body: Result) -> SerializedResult:
-        raise NotImplementedError
+    def serialize(self, job_body: GResult) -> GSerializedResult:
+        pass
 
     @abc.abstractmethod
     def serialize(
-        self, job_body: JobBody | Result
-    ) -> SerializedJobBody | SerializedResult:
+        self, job_body: GJobBody | GResult
+    ) -> GSerializedJobBody | GSerializedResult:
         raise NotImplementedError
 
     @overload
-    def deserialize(self, serialized: SerializedJobBody) -> JobBody:
-        raise NotImplementedError
+    def deserialize(self, serialized: GSerializedJobBody) -> GJobBody:
+        pass
 
     @overload
-    def deserialize(self, serialized: SerializedResult) -> Result:
-        raise NotImplementedError
+    def deserialize(self, serialized: GSerializedResult) -> GResult:
+        pass
 
     @abc.abstractmethod
     def deserialize(
-        self, serialized: SerializedJobBody | SerializedResult
-    ) -> JobBody | Result:
+        self, serialized: GSerializedJobBody | GSerializedResult
+    ) -> GJobBody | GResult:
         raise NotImplementedError
 
-    def serialize_result(self, result: Result) -> SerializedResult:
-        return SerializedResult(self.serialize(result))
+    def serialize_result(self, result: GResult) -> GSerializedResult:
+        return self.serialize(result)
 
-    def deserialize_result(self, serialized_result: SerializedResult) -> Result:
-        return Result(self.deserialize(serialized_result))
+    def deserialize_result(self, serialized_result: GSerializedResult) -> GResult:
+        return self.deserialize(serialized_result)
 
 
 class JobSerializerRegistry:
@@ -116,10 +119,7 @@ class JobDao:
     def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
         if job_id not in self._status_hist:
             return None
-        sh = self._status_hist[job_id]
-        if len(sh) == 0:
-            return None
-        return self._status_hist[job_id][-1]
+        return max(self._status_hist[job_id], key=lambda s: s.issue_time)
 
     def pop_largest_priority_job(self, job_type: str) -> SerializedJob | None:
         jobs_with_type = [
@@ -165,15 +165,15 @@ class JobQueueController:
 
     @overload
     def get_job(self, job_id: str) -> Job:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_job(self, job_id: str, *, deserialize: Literal[True] = True) -> Job:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_job(self, job_id: str, *, deserialize: Literal[False]) -> SerializedJob:
-        raise NotImplementedError
+        pass
 
     def get_job(self, job_id: str, *, deserialize: bool = True) -> Job | SerializedJob:
         sjob = self.job_dao.get_job(job_id)
@@ -185,11 +185,11 @@ class JobQueueController:
 
     @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:
-        raise NotImplementedError
+        pass
 
     @overload
     def add_job(self, new_job_request: NewSerializedJobRequest) -> SerializedJob:
-        raise NotImplementedError
+        pass
 
     def add_job(
         self, new_job_request: NewJobRequest | NewSerializedJobRequest
@@ -219,17 +219,17 @@ class JobQueueController:
 
     @overload
     def get_next_job(self, job_type: str) -> Job:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_next_job(self, job_type: str, *, deserialize: Literal[True]) -> Job:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_next_job(
         self, job_type: str, *, deserialize: Literal[False]
     ) -> SerializedJob:
-        raise NotImplementedError
+        pass
 
     def get_next_job(
         self, job_type: str, *, deserialize: bool = True
@@ -256,6 +256,7 @@ class JobQueueController:
     def _deserialize_status(
         self, s_status: SerializedJobStatus, *, job: Job | SerializedJob | None = None
     ) -> JobStatus:
+        result: Any | Literal[QQABC.NO_RESULT]
         if s_status.result_serialized is None:
             result = NO_RESULT
         else:
@@ -321,13 +322,13 @@ class JobQueueController:
 
     @overload
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        raise NotImplementedError
+        pass
 
     @overload
     def add_job_status(
         self, request: NewSerializedJobStatusRequest
     ) -> SerializedJobStatus:
-        raise NotImplementedError
+        pass
 
     def add_job_status(
         self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
@@ -338,19 +339,19 @@ class JobQueueController:
 
     @overload
     def get_latest_status(self, job_id: str) -> JobStatus | None:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[True]
     ) -> JobStatus | None:
-        raise NotImplementedError
+        pass
 
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[False]
     ) -> SerializedJobStatus | None:
-        raise NotImplementedError
+        pass
 
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True

@@ -349,22 +349,38 @@ class TestJobSerializer:
             def serialize(
                 self, job_body: JobBody | Result
             ) -> SerializedJobBody | SerializedResult:
-                return SerializedJobBody(b"")
+                raise NotImplementedError
+
+            @overload
+            def deserialize(self, serialized: SerializedJobBody) -> JobBody:
+                pass
+
+            @overload
+            def deserialize(self, serialized: SerializedResult) -> Result:
+                pass
 
             def deserialize(
-                self, serialized_job_body: SerializedJobBody | SerializedResult
+                self, serialized: SerializedJobBody | SerializedResult
             ) -> JobBody | Result:
-                return JobBody(object())
+                raise NotImplementedError
 
         job_serializer = MyJobSerializer()
         assert job_serializer is not None
 
     def test_job_serializer_should_implement_serialize(self) -> None:
         class MyJobSerializer(JobSerializer):
+            @overload
+            def deserialize(self, serialized: SerializedJobBody) -> JobBody:
+                pass
+
+            @overload
+            def deserialize(self, serialized: SerializedResult) -> Result:
+                pass
+
             def deserialize(
-                self, serialized_job_body: SerializedJobBody | SerializedResult
+                self, serialized: SerializedJobBody | SerializedResult
             ) -> JobBody | Result:
-                return JobBody(object())
+                raise NotImplementedError
 
         with pytest.raises(TypeError) as e:
             MyJobSerializer()  # type: ignore[abstract]
@@ -386,7 +402,7 @@ class TestJobSerializer:
             def serialize(
                 self, job_body: JobBody | Result
             ) -> SerializedJobBody | SerializedResult:
-                return SerializedJobBody(b"")
+                raise NotImplementedError
 
         with pytest.raises(TypeError) as e:
             MyJobSerializer()  # type: ignore[abstract]

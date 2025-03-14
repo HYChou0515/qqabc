@@ -120,7 +120,7 @@ class TestCli:
         job_type: str,
         *,
         job_body: str | None = None,
-        job_id: str | uuid.UUID | None = None,
+        job_id: str | None = None,
     ) -> ClickResult:
         job_body_ = job_body or self.fx_faker.json()
 
@@ -128,9 +128,7 @@ class TestCli:
             return runner.invoke(app, ["submit", job_type], input=job_body_)
 
         if job_id is not None:
-            if isinstance(job_id, str):
-                job_id = uuid.UUID(job_id)
-            with patch.object(uuid, "uuid4", return_value=job_id):
+            with patch.object(uuid, "uuid4", return_value=uuid.UUID(job_id)):
                 return add()
         else:
             return add()
