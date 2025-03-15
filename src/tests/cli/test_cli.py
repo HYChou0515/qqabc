@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 runner = CliRunner()
 
 BAD_ARG_EXIT_CODE = click.UsageError.exit_code
+NOT_FOUND_CODE = 10
 
 
 @pytest.fixture
@@ -120,7 +121,7 @@ class TestCliConsume(BaseCliTest):
         assert job_type in stdout
 
 
-class AddJobMixin:
+class AddJobMixin(BaseCliTest):
     def _add_job(
         self,
         job_type: str,
@@ -140,7 +141,7 @@ class AddJobMixin:
             return add()
 
 
-class TestCliAddJob(BaseCliTest, AddJobMixin):
+class TestCliAddJob(AddJobMixin):
     def test_pop_to_stdout(self) -> None:
         job_type = self.fx_faker.job_type()
         self._add_job(
@@ -199,16 +200,18 @@ class TestCliAddJob(BaseCliTest, AddJobMixin):
         assert result.exit_code == BAD_ARG_EXIT_CODE
 
 
-class TestCliPostResult(BaseCliTest, AddJobMixin):
+class TestCliPostResult(AddJobMixin):
     def test_post_result_to_absent_job(self) -> None:
-        result = runner.invoke(app, ["post", job_id := self.fx_faker.job_id(), "-s", "success"])
+        result = runner.invoke(
+            app, ["post", job_id := self.fx_faker.job_id(), "-s", "success"]
+        )
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stdout = _get_stdout(result)
         assert "Error" in stdout
         assert job_id in stdout
         assert "does not exist" in stdout
 
-    def test_get_result_when_no_result(self) -> None:
+    def test_get_result_when_no_job(self) -> None:
         result = runner.invoke(app, ["get", "result", job_id := self.fx_faker.job_id()])
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stdout = _get_stdout(result)
@@ -227,10 +230,14 @@ class TestCliPostResult(BaseCliTest, AddJobMixin):
         else:
             raise NotImplementedError
 
-    def _assert_posted_result(self, job_id: str, s_result: str) -> None:
+    def _assert_posted_result(self, job_id: str, s_result: str | None) -> None:
         result = runner.invoke(app, ["get", "result", job_id])
-        assert result.exit_code == 0
-        assert s_result.encode() == result.stdout_bytes
+        if s_result:
+            assert result.exit_code == 0
+            assert s_result.encode() == result.stdout_bytes
+        else:
+            assert result.exit_code == NOT_FOUND_CODE
+            assert result.stdout == ""
 
     def _assert_posted_status(self, job_id: str, status: str) -> None:
         result = runner.invoke(app, ["get", "status", job_id])
@@ -239,11 +246,17 @@ class TestCliPostResult(BaseCliTest, AddJobMixin):
         table_headers = ["Status", "Time", "Detail"]
         assert all(header in result.stdout for header in table_headers)
 
-    def _post_status(self, job_id: str, status: str) -> str:
+    def _post_status(
+        self, job_id: str, status: str, *, with_result: bool = True
+    ) -> str | None:
+        if with_result:
+            s_result = self.fx_faker.json()
+        else:
+            s_result = None
         result = runner.invoke(
             app,
             ["post", job_id, "-s", status],
-            input=(s_result := self.fx_faker.json()),
+            input=s_result,
         )
         assert result.exit_code == 0
         return s_result
@@ -255,8 +268,17 @@ class TestCliPostResult(BaseCliTest, AddJobMixin):
             job_body=(self.fx_faker.json()),
             job_id=(job_id := self.fx_faker.job_id()),
         )
-        for _ in range(3):
-            s_result = self._post_status(job_id, status)
+        result = runner.invoke(app, ["get", "status", job_id])
+        assert result.exit_code == NOT_FOUND_CODE
+        table_headers = ["Status", "Time", "Detail"]
+        assert all(header in result.stdout for header in table_headers)
+
+        result = runner.invoke(app, ["get", "result", job_id])
+        assert result.exit_code == NOT_FOUND_CODE
+        assert result.stdout == ""
+
+        for i in range(3):
+            s_result = self._post_status(job_id, status, with_result=i % 2 == 0)
             self._assert_posted_result(job_id, s_result)
             self._assert_posted_status(job_id, status)
 

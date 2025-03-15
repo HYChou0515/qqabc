@@ -9,10 +9,14 @@ import pytest
 from typing_extensions import override
 
 from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
+from qqabc.exceptions import (
+    EmptyQueueError,
+    JobNotFoundError,
+    SerializerNotFoundError,
+)
 from qqabc.types import (
     NO_RESULT,
     QQABC,
-    EmptyQueueError,
     Job,
     JobBody,
     JobStatus,
@@ -88,9 +92,8 @@ class TestJobSerializer:
         self, fx_faker: Faker, job_serializer_registry: JobSerializerRegistry
     ) -> None:
         job_type = fx_faker.job_type()
-        with pytest.raises(KeyError) as e:
+        with pytest.raises(SerializerNotFoundError, match=job_type):
             job_serializer_registry.get_job_serializer(job_type=job_type)
-        assert e.match(job_type)
 
 
 def test_job_queue_controller_can_be_instantiated() -> None:
@@ -227,9 +230,8 @@ class TestJobController:
 
     def test_get_non_created_job_raises_key_error(self) -> None:
         job_id = self.fx_faker.uuid4()
-        with pytest.raises(KeyError) as e:
+        with pytest.raises(JobNotFoundError, match=job_id):
             self.job_controller.get_job(job_id=job_id)
-        assert e.match(job_id)
 
     def test_add_new_job(self) -> None:
         job = self._add_new_job_request_of_my_job_1()
@@ -243,9 +245,8 @@ class TestJobController:
         assert returned.job_id == job.job_id
 
     def test_get_next_job_from_empty_queue_raise_empty_queue_error(self) -> None:
-        with pytest.raises(EmptyQueueError) as e:
+        with pytest.raises(EmptyQueueError, match=self.my_job_type):
             self.job_controller.get_next_job(job_type=self.my_job_type)
-        assert e.match(self.my_job_type)
 
     def test_get_next_job_returns_the_job(self) -> None:
         job = self._add_new_job_request_of_my_job_1()
@@ -349,9 +350,9 @@ class TestJobConsumer:
         assert status.result == status_request.result
 
     def test_get_job_result_of_non_existed_job(self) -> None:
-        with pytest.raises(KeyError) as e:
-            self.job_controller.get_latest_status(job_id := self.faker.uuid4())
-        assert e.match(job_id)
+        job_id = self.faker.uuid4()
+        with pytest.raises(JobNotFoundError, match=job_id):
+            self.job_controller.get_latest_status(job_id)
 
     @pytest.mark.parametrize("pop_job", [True, False])
     def test_get_job_result_of_no_status_job(self, *, pop_job: bool) -> None:

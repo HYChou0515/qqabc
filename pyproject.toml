@@ -116,6 +116,9 @@ convention = "google"
     # magic value comparison is allowed in tests
     "PLR2004", # Magic value used in comparison, consider replacing `11` with a constant variable
 ]
+"src/qqabc_cli/main.py" = [
+    "FA100",
+]
 
 [tool.ruff.lint]
 preview = true
@@ -140,6 +143,7 @@ ignore = [
     "ARG002", # Unused method argument
     "B903", # Class could be dataclass or namedtuple
     "B024", # is an abstract base class, but it has no abstract methods or properties
+    "PLC1901",  # can be simplified to as an empty string is falsey
 ]
 select = [
     # pycodestyle

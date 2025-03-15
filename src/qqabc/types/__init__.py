@@ -180,7 +180,3 @@ class NewSerializedJobRequest(BaseNewJobRequest):
     ) -> None:
         super().__init__(job_type=job_type, nice=nice)
         self.job_body_serialized = job_body_serialized
-
-
-class EmptyQueueError(IndexError):
-    pass

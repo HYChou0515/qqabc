@@ -7,10 +7,10 @@ from typing import Any, Generic, Literal
 
 from typing_extensions import overload
 
+from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
 from qqabc.types import (
     NO_RESULT,
     QQABC,
-    EmptyQueueError,
     GJobBody,
     GResult,
     GSerializedJobBody,
@@ -75,7 +75,7 @@ class JobSerializerRegistry:
 
     def get_job_serializer(self, job_type: str) -> JobSerializer:
         if job_type not in self._job_serializers:
-            raise KeyError(f"Job type {job_type} not found in registry")
+            raise SerializerNotFoundError(f"Job type {job_type} not found in registry")
         return self._job_serializers[job_type]
 
 
@@ -140,7 +140,7 @@ class JobQueueController:
 
     def _check_job_exists(self, job_id: str) -> None:
         if not self.job_dao.job_exists(job_id):
-            raise KeyError(job_id)
+            raise JobNotFoundError(job_id)
 
     def _get_serializer(self, job_type: str) -> JobSerializer:
         return self.job_serializer_registry.get_job_serializer(job_type)
@@ -178,7 +178,7 @@ class JobQueueController:
     def get_job(self, job_id: str, *, deserialize: bool = True) -> Job | SerializedJob:
         sjob = self.job_dao.get_job(job_id)
         if sjob is None:
-            raise KeyError(job_id)
+            raise JobNotFoundError(job_id)
         if deserialize:
             return self._deserialize_job(sjob)
         return sjob
