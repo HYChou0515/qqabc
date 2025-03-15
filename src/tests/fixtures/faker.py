@@ -36,6 +36,9 @@ class Faker(_Faker):
     def job_type(self) -> str:
         return self.name()
 
+    def job_status(self) -> str:
+        return self.random_element(["success", "fail", "process"])
+
     def new_job_request(
         self,
         *,

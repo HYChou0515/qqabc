@@ -10,9 +10,9 @@ test-func:
 	coverage report -m
 test-style:
 	. .venv/bin/activate && cd src && \
-	mypy qqabc tests && \
-	ruff check qqabc tests
+	mypy qqabc qqabc_cli tests && \
+	ruff check qqabc qqabc_cli tests
 style:
 	. .venv/bin/activate && cd src && \
-	ruff format qqabc tests && \
-	ruff check --fix qqabc tests
+	ruff format qqabc qqabc_cli tests && \
+	ruff check --fix qqabc qqabc_cli tests
