@@ -8,7 +8,6 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from qqabc import JobQueueController
 from qqabc.application.domain.model.job import (
     SerializedJob,
     SerializedJobBody,
@@ -16,6 +15,7 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
+from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewSerializedJobStatusRequest,
 )
@@ -33,7 +33,7 @@ class NotFoundError(typer.Exit):
 
 
 def _submit_to_queue(job_type: str, job_body: bytes) -> None:
-    controller = JobQueueController()
+    controller = JobQueueService()
     request = NewSerializedJobRequest(
         job_type=job_type,
         job_body_serialized=SerializedJobBody(job_body),
@@ -70,7 +70,7 @@ def _check_dir(d: str) -> None:
 
 
 def _pop_from_queue(job_type: str) -> SerializedJob:
-    controller = JobQueueController()
+    controller = JobQueueService()
     try:
         sjob = controller.get_next_job(job_type, deserialize=False)
     except EmptyQueueError as e:
@@ -118,7 +118,7 @@ def _map_status(status: Status) -> StatusEnum:
 
 @app.command()
 def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
-    controller = JobQueueController()
+    controller = JobQueueService()
     result = sys.stdin.buffer.read()
     if not result:
         result = None
@@ -142,7 +142,7 @@ class Resource(str, Enum):
 
 
 def _get_status(job_id: str) -> Optional[SerializedJobStatus]:
-    controller = JobQueueController()
+    controller = JobQueueService()
     try:
         s_status = controller.get_latest_status(job_id, deserialize=False)
     except JobNotFoundError as e:

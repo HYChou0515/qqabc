@@ -11,7 +11,7 @@ import click
 import pytest
 from typer.testing import CliRunner
 
-from qqabc import JobQueueController
+from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc_cli.main import app
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ class TestCliSubmit(BaseCliTest):
 
     def test_submit(self, mocker: MockerFixture) -> None:
         stub_uid = uuid.uuid4()
-        spy = mocker.spy(JobQueueController, "add_job")
+        spy = mocker.spy(JobQueueService, "add_job")
         with (
             patch.object(uuid, "uuid4", return_value=stub_uid) as spy2,
         ):
@@ -76,7 +76,7 @@ class TestCliSubmit(BaseCliTest):
         self, fx_job_body_file: str, mocker: MockerFixture
     ) -> None:
         stub_uid = uuid.uuid4()
-        spy = mocker.spy(JobQueueController, "add_job")
+        spy = mocker.spy(JobQueueService, "add_job")
         with (
             patch.object(uuid, "uuid4", return_value=stub_uid) as spy2,
         ):

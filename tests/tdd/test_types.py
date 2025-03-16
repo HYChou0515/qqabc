@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, overload
 
 import pytest
 
-from qqabc import JobSerializer
 from qqabc.application.domain.model.job import (
     Job,
     JobBody,
@@ -16,6 +15,7 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
+from qqabc.application.domain.service.job_serializer_registry import JobSerializer
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
     NewSerializedJobStatusRequest,

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import pytest
 from typing_extensions import override
 
-from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -19,6 +18,11 @@ from qqabc.application.domain.model.job import (
     SerializedJobBody,
     SerializedResult,
     StatusEnum,
+)
+from qqabc.application.domain.service.job_queue_service import JobQueueService
+from qqabc.application.domain.service.job_serializer_registry import (
+    JobSerializer,
+    JobSerializerRegistry,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
@@ -99,7 +103,7 @@ class TestJobSerializer:
 
 
 def test_job_queue_controller_can_be_instantiated() -> None:
-    controller = JobQueueController()
+    controller = JobQueueService()
     assert controller is not None
 
 
@@ -210,7 +214,7 @@ class TestJobController:
     def setup_method(self, fx_faker: Faker) -> None:
         self.fx_faker = fx_faker
 
-        self.job_controller = JobQueueController()
+        self.job_controller = JobQueueService()
         self._register_my_job_serializer()
         self._register_math_job_serializer()
 
@@ -295,7 +299,7 @@ class TestJobConsumer:
     @pytest.fixture(autouse=True)
     def setup_method(self, fx_faker: Faker) -> None:
         self.faker = fx_faker
-        self.job_controller = JobQueueController()
+        self.job_controller = JobQueueService()
 
         class MyJobSerializer(JobSerializer):
             @overload
