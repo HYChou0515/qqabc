@@ -7,22 +7,26 @@ from typing import Any, Generic, Literal
 
 from typing_extensions import overload
 
-from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
-from qqabc.types import (
+from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
-    GJobBody,
-    GResult,
-    GSerializedJobBody,
-    GSerializedResult,
     Job,
     JobStatus,
+    SerializedJob,
+    SerializedJobStatus,
+)
+from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
+from qqabc.types import (
     NewJobRequest,
     NewJobStatusRequest,
     NewSerializedJobRequest,
     NewSerializedJobStatusRequest,
-    SerializedJob,
-    SerializedJobStatus,
+)
+from qqabc.application.domain.model.job import (
+    GJobBody,
+    GResult,
+    GSerializedJobBody,
+    GSerializedResult,
 )
 
 

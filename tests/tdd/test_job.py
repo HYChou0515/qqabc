@@ -9,23 +9,25 @@ import pytest
 from typing_extensions import override
 
 from qqabc import JobQueueController, JobSerializer, JobSerializerRegistry
+from qqabc.application.domain.model.job import (
+    NO_RESULT,
+    QQABC,
+    Job,
+    JobBody,
+    JobStatus,
+    Result,
+    SerializedJobBody,
+    SerializedResult,
+    StatusEnum,
+)
 from qqabc.exceptions import (
     EmptyQueueError,
     JobNotFoundError,
     SerializerNotFoundError,
 )
 from qqabc.types import (
-    NO_RESULT,
-    QQABC,
-    Job,
-    JobBody,
-    JobStatus,
     NewJobRequest,
     NewJobStatusRequest,
-    Result,
-    SerializedJobBody,
-    SerializedResult,
-    StatusEnum,
 )
 
 if TYPE_CHECKING:

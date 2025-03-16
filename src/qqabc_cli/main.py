@@ -9,15 +9,17 @@ from rich.console import Console
 from rich.table import Table
 
 from qqabc import JobQueueController
-from qqabc.exceptions import EmptyQueueError, JobNotFoundError
-from qqabc.types import (
-    NewSerializedJobRequest,
-    NewSerializedJobStatusRequest,
+from qqabc.application.domain.model.job import (
     SerializedJob,
     SerializedJobBody,
     SerializedJobStatus,
     SerializedResult,
     StatusEnum,
+)
+from qqabc.exceptions import EmptyQueueError, JobNotFoundError
+from qqabc.types import (
+    NewSerializedJobRequest,
+    NewSerializedJobStatusRequest,
 )
 
 console = Console()
