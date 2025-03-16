@@ -3,11 +3,11 @@ from __future__ import annotations
 import abc
 import datetime as dt
 import uuid
-from typing import Any, Generic, Literal
+from typing import TYPE_CHECKING, Any, Generic, Literal
 
 from typing_extensions import overload
 
-from qqabc.adapter.out.pseristence.job_persistence_adapter import JobDao
+from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -33,6 +33,9 @@ from qqabc.common.exceptions import (
     JobNotFoundError,
     SerializerNotFoundError,
 )
+
+if TYPE_CHECKING:
+    from qqabc.adapter.out.pseristence.job_repo_adapter import JobRepoAdapter
 
 
 class JobSerializer(
@@ -90,7 +93,7 @@ class JobSerializerRegistry:
 
 class JobQueueController:
     def __init__(self) -> None:
-        self.job_dao = JobDao()
+        self.job_dao: JobRepoAdapter = InMemoryJobRepo()
         self.job_serializer_registry = JobSerializerRegistry()
 
     def _check_job_exists(self, job_id: str) -> None:

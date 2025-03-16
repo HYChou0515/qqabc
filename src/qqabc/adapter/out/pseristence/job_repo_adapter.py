@@ -1,13 +1,36 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qqabc.application.domain.model.job import SerializedJob, SerializedJobStatus
 
 
-class JobPersistenceAdapter:
-    pass
+class JobRepoAdapter(ABC):
+    @abstractmethod
+    def job_exists(self, job_id: str) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_job(self, s_job: SerializedJob) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_job(self, job_id: str) -> SerializedJob | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_status(self, s_status: SerializedJobStatus) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def pop_largest_priority_job(self, job_type: str) -> SerializedJob | None:
+        raise NotImplementedError
 
 
 _queue: dict[str, SerializedJob] = {}  # Singleton
@@ -15,7 +38,7 @@ _hist: dict[str, SerializedJob] = {}  # Singleton
 _job_status: dict[str, list[SerializedJobStatus]] = {}  # Singleton
 
 
-class JobDao:
+class InMemoryJobRepo(JobRepoAdapter):
     def __init__(self) -> None:
         self._queue = _queue
         self._hist = _hist
