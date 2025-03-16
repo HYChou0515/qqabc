@@ -14,6 +14,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
+bdd = [
+    "pytest-bdd>=8.1.0",
+    "sh>=2.2.2",
+    "typer>=0.15.2",
+]
 cli = [
     "typer>=0.15.2",
 ]
@@ -26,7 +31,11 @@ dev = [
     "pytest-freezegun>=0.4.2",
     "pytest-mock>=3.14.0",
     "ruff>=0.9.7",
+    "typer>=0.15.2",
 ]
+
+[tool.pytest.ini_options]
+bdd_features_base_dir = "tests/bdd/features"
 
 [tool.coverage.run]
 branch = true
