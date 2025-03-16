@@ -6,13 +6,13 @@ test: test-style test-func
 test-func:
 	. .venv/bin/activate && \
 	rm -rf htmlcov .coverage && \
-	coverage run -m pytest src/tests && \
+	coverage run -m pytest tests/tdd && \
 	coverage report -m
 test-style:
-	. .venv/bin/activate && cd src && \
-	mypy qqabc qqabc_cli tests && \
-	ruff check qqabc qqabc_cli tests
+	. .venv/bin/activate && \
+	mypy src/qqabc src/qqabc_cli tests/tdd && \
+	ruff check src/qqabc src/qqabc_cli tests/tdd
 style:
-	. .venv/bin/activate && cd src && \
-	ruff format qqabc qqabc_cli tests && \
-	ruff check --fix qqabc qqabc_cli tests
+	. .venv/bin/activate && \
+	ruff format src/qqabc src/qqabc_cli tests/tdd && \
+	ruff check --fix src/qqabc src/qqabc_cli tests/tdd
