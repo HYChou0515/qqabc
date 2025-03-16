@@ -20,14 +20,14 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
+from qqabc.application.port.in_.post_job_status_use_case import (
+    NewJobStatusRequest,
+)
+from qqabc.application.port.in_.submit_job_use_case import NewJobRequest
 from qqabc.exceptions import (
     EmptyQueueError,
     JobNotFoundError,
     SerializerNotFoundError,
-)
-from qqabc.types import (
-    NewJobRequest,
-    NewJobStatusRequest,
 )
 
 if TYPE_CHECKING:

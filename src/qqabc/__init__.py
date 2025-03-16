@@ -10,24 +10,24 @@ from typing_extensions import overload
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
+    GJobBody,
+    GResult,
+    GSerializedJobBody,
+    GSerializedResult,
     Job,
     JobStatus,
     SerializedJob,
     SerializedJobStatus,
 )
-from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
-from qqabc.types import (
-    NewJobRequest,
+from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
-    NewSerializedJobRequest,
     NewSerializedJobStatusRequest,
 )
-from qqabc.application.domain.model.job import (
-    GJobBody,
-    GResult,
-    GSerializedJobBody,
-    GSerializedResult,
+from qqabc.application.port.in_.submit_job_use_case import (
+    NewJobRequest,
+    NewSerializedJobRequest,
 )
+from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
 
 
 class JobSerializer(

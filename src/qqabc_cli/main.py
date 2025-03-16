@@ -16,11 +16,11 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
-from qqabc.exceptions import EmptyQueueError, JobNotFoundError
-from qqabc.types import (
-    NewSerializedJobRequest,
+from qqabc.application.port.in_.post_job_status_use_case import (
     NewSerializedJobStatusRequest,
 )
+from qqabc.application.port.in_.submit_job_use_case import NewSerializedJobRequest
+from qqabc.exceptions import EmptyQueueError, JobNotFoundError
 
 console = Console()
 

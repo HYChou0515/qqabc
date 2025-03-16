@@ -16,11 +16,13 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
-from qqabc.types import (
-    NewJobRequest,
+from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
-    NewSerializedJobRequest,
     NewSerializedJobStatusRequest,
+)
+from qqabc.application.port.in_.submit_job_use_case import (
+    NewJobRequest,
+    NewSerializedJobRequest,
 )
 
 if TYPE_CHECKING:

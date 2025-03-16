@@ -12,9 +12,11 @@ from qqabc.application.domain.model.job import (
     SerializedJobBody,
     StatusEnum,
 )
-from qqabc.types import (
-    NewJobRequest,
+from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
+)
+from qqabc.application.port.in_.submit_job_use_case import (
+    NewJobRequest,
     NewSerializedJobRequest,
 )
 
