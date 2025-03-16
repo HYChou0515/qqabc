@@ -27,7 +27,11 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
-from qqabc.exceptions import EmptyQueueError, JobNotFoundError, SerializerNotFoundError
+from qqabc.common.exceptions import (
+    EmptyQueueError,
+    JobNotFoundError,
+    SerializerNotFoundError,
+)
 
 
 class JobSerializer(
