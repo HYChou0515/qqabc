@@ -81,10 +81,24 @@ class JobQueueService:
         if deserialize:
             return self._deserialize_job(sjob)
         return sjob
+
+    @overload
+    def list_jobs(self) -> list[SerializedJob]:
+        pass
+
+    @overload
+    def list_jobs(self, *, deserialize: Literal[True]) -> list[SerializedJob]:
+        pass
+
+    @overload
+    def list_jobs(self, *, deserialize: Literal[False] = False) -> SerializedJob:
+        pass
     
-    def list_jobs(self) -> list[Job]:
+    def list_jobs(self, *, deserialize: bool = False) -> list[SerializedJob]:
         jobs = self.job_dao.list_jobs()
-        return [self._deserialize_job(job) for job in jobs]
+        if deserialize:
+            return [self._deserialize_job(job) for job in jobs]
+        return jobs
 
     @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:

@@ -274,7 +274,7 @@ class TestJobController:
     def test_list_jobs(self) -> None:
         job1 = self._add_new_job_request_of_math_job_1()
         job2 = self._add_new_job_request_of_math_job_1()
-        jobs = self.job_controller.list_jobs()
+        jobs = self.job_controller.list_jobs(deserialize=True)
         assert len(jobs) == 2
         assert job1 in jobs
         assert job2 in jobs
