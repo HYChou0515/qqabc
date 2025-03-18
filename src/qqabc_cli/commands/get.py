@@ -22,6 +22,7 @@ console = Console()
 
 app = typer.Typer(name="get")
 
+
 def _get_status(job_id: str) -> Optional[SerializedJobStatus]:
     svc = di_job_queue_service()
     try:
@@ -47,16 +48,16 @@ def _render_single_status(s_status: Optional[SerializedJobStatus]) -> None:
 def _write_result_to_stdout(s_result: SerializedResult) -> None:
     sys.stdout.buffer.write(s_result)
 
+
 @app.command(name="jobs")
-def get_job(job_id: Optional[str]=None) -> None:
+def get_job() -> None:
     svc = di_job_queue_service()
     table = Table("ID", "Type", "Time")
     jobs = svc.list_jobs()
     for job in jobs:
-        if job_id is not None and job.job_id != job_id:
-            continue
         table.add_row(job.job_id, job.job_type)
     console.print(table)
+
 
 @app.command(name="result")
 def get_result(job_id: str) -> None:
@@ -66,6 +67,7 @@ def get_result(job_id: str) -> None:
     if s_status.result_serialized is None:
         raise ResultNotFoundError(job_id)
     _write_result_to_stdout(s_status.result_serialized)
+
 
 @app.command(name="status")
 def get_status(job_id: str) -> None:

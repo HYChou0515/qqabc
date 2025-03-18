@@ -35,10 +35,9 @@ def _map_status(status: Status) -> StatusEnum:
         return StatusEnum.FAILED
     raise NotImplementedError
 
+
 @app.command()
-def post(
-    job_id: str, status: Annotated[Status, typer.Option("-s")]
-) -> None:
+def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
     svc = di_job_queue_service()
     result = sys.stdin.buffer.read()
     if not result:

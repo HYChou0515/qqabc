@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools as it
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -73,9 +74,9 @@ class InMemoryJobRepo(JobRepoAdapter):
         if (job := self._get_job_from_queue(job_id)) is None:
             return self._get_job_from_hist(job_id)
         return job
-    
+
     def list_jobs(self) -> list[SerializedJob]:
-        return list(self._queue.values()) + list(self._hist)
+        return list(it.chain(self._queue.values(), self._hist.values()))
 
     def add_status(self, s_status: SerializedJobStatus) -> None:
         if s_status.job_id not in self._status_hist:

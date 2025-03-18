@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from typing_extensions import overload
 
-from qqabc.adapter.out.pseristence.job_repo_adapter import (
-    JobRepoAdapter,
-)
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -17,13 +14,8 @@ from qqabc.application.domain.model.job import (
     SerializedJob,
     SerializedJobStatus,
 )
-from qqabc.application.domain.service.job_serializer_registry import (
-    JobSerializer,
-    JobSerializerRegistry,
-)
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
-    NewSerializedJobStatusRequest,
 )
 from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
@@ -31,9 +23,23 @@ from qqabc.application.port.in_.submit_job_use_case import (
 )
 from qqabc.common.exceptions import EmptyQueueError, JobNotFoundError
 
+if TYPE_CHECKING:
+    from qqabc.adapter.out.pseristence.job_repo_adapter import (
+        JobRepoAdapter,
+    )
+    from qqabc.application.domain.service.job_serializer_registry import (
+        JobSerializer,
+        JobSerializerRegistry,
+    )
+    from qqabc.application.port.in_.post_job_status_use_case import (
+        NewSerializedJobStatusRequest,
+    )
+
 
 class JobQueueService:
-    def __init__(self, job_dao: JobRepoAdapter, job_serializer_registry: JobSerializerRegistry) -> None:
+    def __init__(
+        self, job_dao: JobRepoAdapter, job_serializer_registry: JobSerializerRegistry
+    ) -> None:
         self.job_dao = job_dao
         self.job_serializer_registry = job_serializer_registry
 
@@ -63,18 +69,20 @@ class JobQueueService:
         return sjob
 
     @overload
-    def get_job(self, job_id: str) -> Job:
+    def get_job(self, job_id: str) -> SerializedJob:
         pass
 
     @overload
-    def get_job(self, job_id: str, *, deserialize: Literal[True] = True) -> Job:
+    def get_job(self, job_id: str, *, deserialize: Literal[True]) -> Job:
         pass
 
     @overload
-    def get_job(self, job_id: str, *, deserialize: Literal[False]) -> SerializedJob:
+    def get_job(
+        self, job_id: str, *, deserialize: Literal[False] = False
+    ) -> SerializedJob:
         pass
 
-    def get_job(self, job_id: str, *, deserialize: bool = True) -> Job | SerializedJob:
+    def get_job(self, job_id: str, *, deserialize: bool = False) -> Job | SerializedJob:
         sjob = self.job_dao.get_job(job_id)
         if sjob is None:
             raise JobNotFoundError(job_id)
@@ -87,14 +95,16 @@ class JobQueueService:
         pass
 
     @overload
-    def list_jobs(self, *, deserialize: Literal[True]) -> list[SerializedJob]:
+    def list_jobs(self, *, deserialize: Literal[True]) -> list[Job]:
         pass
 
     @overload
-    def list_jobs(self, *, deserialize: Literal[False] = False) -> SerializedJob:
+    def list_jobs(self, *, deserialize: Literal[False] = False) -> list[SerializedJob]:
         pass
-    
-    def list_jobs(self, *, deserialize: bool = False) -> list[SerializedJob]:
+
+    def list_jobs(
+        self, *, deserialize: bool = False
+    ) -> list[SerializedJob] | list[Job]:
         jobs = self.job_dao.list_jobs()
         if deserialize:
             return [self._deserialize_job(job) for job in jobs]
@@ -135,7 +145,7 @@ class JobQueueService:
         return job
 
     @overload
-    def get_next_job(self, job_type: str) -> Job:
+    def get_next_job(self, job_type: str) -> SerializedJob:
         pass
 
     @overload
@@ -149,7 +159,7 @@ class JobQueueService:
         pass
 
     def get_next_job(
-        self, job_type: str, *, deserialize: bool = True
+        self, job_type: str, *, deserialize: bool = False
     ) -> Job | SerializedJob:
         if deserialize:
             return self._get_next_job(job_type)

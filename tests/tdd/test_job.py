@@ -3,12 +3,15 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pickle
-from typing import TYPE_CHECKING, Any, Generator, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pytest
 from typing_extensions import override
 
-from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo, JobRepoAdapter
+from qqabc.adapter.out.pseristence.job_repo_adapter import (
+    InMemoryJobRepo,
+    JobRepoAdapter,
+)
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -36,6 +39,8 @@ from qqabc.common.exceptions import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from freezegun.api import FrozenDateTimeFactory
 
     from tdd.fixtures.faker import Faker
@@ -74,16 +79,18 @@ class MyJobSerializer(JobSerializer):
         return pickle.loads(serialized)
 
 
-class MathJobBody:
+class MathJobBody:  # noqa: PLW1641
     def __init__(self, *args: Any, op: str, a: int, b: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.op = op
         self.a = a
         self.b = b
-    def __eq__(self, other: Any) -> bool:
+
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, MathJobBody):
             return NotImplemented
         return self.op == other.op and self.a == other.a and self.b == other.b
+
 
 class MathJobSerializer(JobSerializer):
     @overload
@@ -128,6 +135,7 @@ class MathJobSerializer(JobSerializer):
             b=data["b"],
         )
 
+
 class TestJobSerializer:
     def test_register_job_serializer(
         self, fx_faker: Faker, job_serializer_registry: JobSerializerRegistry
@@ -156,19 +164,26 @@ class TestJobSerializer:
         with pytest.raises(SerializerNotFoundError, match=job_type):
             job_serializer_registry.get_job_serializer(job_type=job_type)
 
+
 @pytest.fixture
 def fx_job_repo_adapter() -> Generator[JobRepoAdapter]:
     job_repo = InMemoryJobRepo()
     yield job_repo
     job_repo.teardown()
 
+
 @pytest.fixture
 def fx_job_serializer_registry() -> JobSerializerRegistry:
     return JobSerializerRegistry()
 
+
 @pytest.fixture
-def fx_job_queue_controller(fx_job_repo_adapter, fx_job_serializer_registry) -> JobQueueService:
+def fx_job_queue_controller(
+    fx_job_repo_adapter: JobRepoAdapter,
+    fx_job_serializer_registry: JobSerializerRegistry,
+) -> JobQueueService:
     return JobQueueService(fx_job_repo_adapter, fx_job_serializer_registry)
+
 
 class TestJobController:
     def _register_my_job_serializer(self) -> None:
@@ -192,7 +207,9 @@ class TestJobController:
         )
 
     @pytest.fixture(autouse=True)
-    def setup_method(self, fx_faker: Faker, fx_job_queue_controller: JobQueueService) -> None:
+    def setup_method(
+        self, fx_faker: Faker, fx_job_queue_controller: JobQueueService
+    ) -> None:
         self.fx_faker = fx_faker
         self.job_controller = fx_job_queue_controller
         self._register_my_job_serializer()
@@ -211,11 +228,13 @@ class TestJobController:
     def _add_new_job_request_of_math_job_1(self) -> Job:
         req = NewJobRequest(
             job_type=self.math_job_type,
-            job_body=JobBody(MathJobBody(
-                op="add",
-                a=self.fx_faker.pyint(-10, 10), 
-                b=self.fx_faker.pyint(20, 50), 
-            )),
+            job_body=JobBody(
+                MathJobBody(
+                    op="add",
+                    a=self.fx_faker.pyint(-10, 10),
+                    b=self.fx_faker.pyint(20, 50),
+                )
+            ),
         )
         job = self.job_controller.add_job(req)
         assert job.job_body == req.job_body
@@ -270,7 +289,7 @@ class TestJobController:
 
     def test_list_jobs_from_nothing(self) -> None:
         assert self.job_controller.list_jobs() == []
-    
+
     def test_list_jobs(self) -> None:
         job1 = self._add_new_job_request_of_math_job_1()
         job2 = self._add_new_job_request_of_math_job_1()
@@ -286,7 +305,9 @@ class TestJobController:
                 job_body=JobBody(MathJobBody(op="add", a=1, b=2)),
             )
         )
-        job2: Job[MathJobBody] = self.job_controller.get_job(job1.job_id)
+        job2: Job[MathJobBody] = self.job_controller.get_job(
+            job1.job_id, deserialize=True
+        )
         assert job1.job_body.op == job2.job_body.op
         assert job1.job_body.a == job2.job_body.a
         assert job1.job_body.b == job2.job_body.b
@@ -303,7 +324,8 @@ class TestJobController:
 class TestJobConsumer:
     @pytest.fixture(autouse=True)
     def setup_method(
-        self, fx_faker: Faker, 
+        self,
+        fx_faker: Faker,
         fx_job_queue_controller: JobQueueService,
     ) -> None:
         self.faker = fx_faker

@@ -16,10 +16,7 @@ console = Console()
 app = typer.Typer()
 
 
-def _submit_to_queue(
-    job_type: str, 
-    job_body: bytes
-) -> None:
+def _submit_to_queue(job_type: str, job_body: bytes) -> None:
     svc = di_job_queue_service()
     request = NewSerializedJobRequest(
         job_type=job_type,

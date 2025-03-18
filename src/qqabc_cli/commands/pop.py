@@ -22,10 +22,9 @@ def _check_dir(d: str) -> None:
     if not Path(d).is_dir():
         raise typer.BadParameter(f"Error: {d} is not a directory")
 
-def _pop_from_queue(
-    job_type: str
-) -> SerializedJob:
-    svc =di_job_queue_service()
+
+def _pop_from_queue(job_type: str) -> SerializedJob:
+    svc = di_job_queue_service()
     try:
         sjob = svc.get_next_job(job_type, deserialize=False)
     except EmptyQueueError as e:

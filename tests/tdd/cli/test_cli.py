@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import re
 import tempfile
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from unittest.mock import patch
-import typer
+
 import click
 import pytest
 from typer.testing import CliRunner
@@ -19,6 +19,7 @@ from qqabc_cli.main import build_container, create_app
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import typer
     from click.testing import Result as ClickResult
     from pytest_mock import MockerFixture
 
@@ -44,6 +45,7 @@ def _get_stdout(result: ClickResult) -> str:
 
 def _get_sterr(result: ClickResult) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr))
+
 
 @pytest.fixture
 def fx_app() -> Generator[typer.Typer]:
@@ -111,7 +113,9 @@ class TestCliSubmit(BaseCliTest):
         self,
     ) -> None:
         fname = self.fx_faker.file_name()
-        result = runner.invoke(self.app, ["submit", self.fx_faker.job_type(), "-f", fname])
+        result = runner.invoke(
+            self.app, ["submit", self.fx_faker.job_type(), "-f", fname]
+        )
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stderr = _get_sterr(result)
         assert "Error" in stderr
@@ -136,11 +140,13 @@ class TestCliConsume(BaseCliTest):
         assert "No job with job type" in stderr
         assert job_type in stderr
 
+
 @dataclass
 class AddJobType:
     job_type: str
     job_body: str
     job_id: str
+
 
 class AddJobMixin(BaseCliTest):
     def _add_job(
@@ -156,16 +162,19 @@ class AddJobMixin(BaseCliTest):
             job_id=job_id or self.fx_faker.job_id(),
         )
         with patch.object(uuid, "uuid4", return_value=uuid.UUID(add_job_type.job_id)):
-            result = runner.invoke(self.app, ["submit", add_job_type.job_type], input=add_job_type.job_body)
+            result = runner.invoke(
+                self.app, ["submit", add_job_type.job_type], input=add_job_type.job_body
+            )
         assert result.exit_code == 0
         return add_job_type, result
+
 
 class TestCliAddJob(AddJobMixin):
     def test_pop_to_stdout(self) -> None:
         aj, _ = self._add_job()
 
         result = runner.invoke(self.app, ["pop", aj.job_type])
-        assert result.exit_code == 0, result.stderr+result.stdout
+        assert result.exit_code == 0, result.stderr + result.stdout
         assert aj.job_body.encode() == result.stdout_bytes
 
     def test_pop_to_dir(self) -> None:
@@ -220,7 +229,9 @@ class TestCliPostResult(AddJobMixin):
         assert "does not exist" in stderr
 
     def test_get_result_when_no_job(self) -> None:
-        result = runner.invoke(self.app, ["get", "result", job_id := self.fx_faker.job_id()])
+        result = runner.invoke(
+            self.app, ["get", "result", job_id := self.fx_faker.job_id()]
+        )
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stderr = _get_sterr(result)
         assert "Error" in stderr
@@ -290,7 +301,7 @@ class TestCliPostResult(AddJobMixin):
 
     def test_get_jobs_from_nothing(self) -> None:
         result = runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr+result.stdout
+        assert result.exit_code == 0, result.stderr + result.stdout
         self._assert_job_in_table([], _get_stdout(result))
 
     def _assert_job_in_table(self, ajs: list[AddJobType], s: str) -> None:
@@ -303,10 +314,10 @@ class TestCliPostResult(AddJobMixin):
     def test_get_jobs(self) -> None:
         aj1, _ = self._add_job()
         result = runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr+result.stdout
+        assert result.exit_code == 0, result.stderr + result.stdout
         self._assert_job_in_table([aj1], _get_stdout(result))
 
         aj2, _ = self._add_job()
         result = runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr+result.stdout
+        assert result.exit_code == 0, result.stderr + result.stdout
         self._assert_job_in_table([aj1, aj2], _get_stdout(result))
