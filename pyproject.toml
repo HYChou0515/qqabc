@@ -7,7 +7,9 @@ authors = [
     { name = "Chou Hung-Yi", email = "hychou.svm@gmail.com" }
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "dependency-injector>=4.46.0",
+]
 
 [build-system]
 requires = ["hatchling"]

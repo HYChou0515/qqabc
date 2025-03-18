@@ -8,8 +8,8 @@ from rich.console import Console
 from qqabc.application.domain.model.job import (
     SerializedJob,
 )
-from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.common.exceptions import EmptyQueueError
+from qqabc_cli.di.out import di_job_queue_service
 
 console = Console()
 
@@ -22,11 +22,12 @@ def _check_dir(d: str) -> None:
     if not Path(d).is_dir():
         raise typer.BadParameter(f"Error: {d} is not a directory")
 
-
-def _pop_from_queue(job_type: str) -> SerializedJob:
-    controller = JobQueueService()
+def _pop_from_queue(
+    job_type: str
+) -> SerializedJob:
+    svc =di_job_queue_service()
     try:
-        sjob = controller.get_next_job(job_type, deserialize=False)
+        sjob = svc.get_next_job(job_type, deserialize=False)
     except EmptyQueueError as e:
         raise typer.BadParameter(f"Error: No job with job type: {job_type}") from e
     return sjob

@@ -7,7 +7,6 @@ from typing import Any, Literal
 from typing_extensions import overload
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import (
-    InMemoryJobRepo,
     JobRepoAdapter,
 )
 from qqabc.application.domain.model.job import (
@@ -34,9 +33,9 @@ from qqabc.common.exceptions import EmptyQueueError, JobNotFoundError
 
 
 class JobQueueService:
-    def __init__(self) -> None:
-        self.job_dao: JobRepoAdapter = InMemoryJobRepo()
-        self.job_serializer_registry = JobSerializerRegistry()
+    def __init__(self, job_dao: JobRepoAdapter, job_serializer_registry: JobSerializerRegistry) -> None:
+        self.job_dao = job_dao
+        self.job_serializer_registry = job_serializer_registry
 
     def _check_job_exists(self, job_id: str) -> None:
         if not self.job_dao.job_exists(job_id):
@@ -82,6 +81,10 @@ class JobQueueService:
         if deserialize:
             return self._deserialize_job(sjob)
         return sjob
+    
+    def list_jobs(self) -> list[Job]:
+        jobs = self.job_dao.list_jobs()
+        return [self._deserialize_job(job) for job in jobs]
 
     @overload
     def add_job(self, new_job_request: NewJobRequest) -> Job:

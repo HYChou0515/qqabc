@@ -9,11 +9,11 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
     StatusEnum,
 )
-from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewSerializedJobStatusRequest,
 )
 from qqabc.common.exceptions import JobNotFoundError
+from qqabc_cli.di.out import di_job_queue_service
 
 console = Console()
 
@@ -35,10 +35,11 @@ def _map_status(status: Status) -> StatusEnum:
         return StatusEnum.FAILED
     raise NotImplementedError
 
-
 @app.command()
-def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
-    controller = JobQueueService()
+def post(
+    job_id: str, status: Annotated[Status, typer.Option("-s")]
+) -> None:
+    svc = di_job_queue_service()
     result = sys.stdin.buffer.read()
     if not result:
         result = None
@@ -51,6 +52,6 @@ def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
         result_serialized=result,
     )
     try:
-        controller.add_job_status(req)
+        svc.add_job_status(req)
     except JobNotFoundError as e:
         raise typer.BadParameter(f"Error: job {job_id} does not exist") from e

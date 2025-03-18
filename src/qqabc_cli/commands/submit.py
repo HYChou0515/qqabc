@@ -8,21 +8,24 @@ from rich.console import Console
 from qqabc.application.domain.model.job import (
     SerializedJobBody,
 )
-from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.application.port.in_.submit_job_use_case import NewSerializedJobRequest
+from qqabc_cli.di.out import di_job_queue_service
 
 console = Console()
 
 app = typer.Typer()
 
 
-def _submit_to_queue(job_type: str, job_body: bytes) -> None:
-    controller = JobQueueService()
+def _submit_to_queue(
+    job_type: str, 
+    job_body: bytes
+) -> None:
+    svc = di_job_queue_service()
     request = NewSerializedJobRequest(
         job_type=job_type,
         job_body_serialized=SerializedJobBody(job_body),
     )
-    job = controller.add_job(request)
+    job = svc.add_job(request)
     console.print("job submitted")
     console.print(f"job id = {job.job_id}")
 

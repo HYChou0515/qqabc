@@ -3,11 +3,12 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pickle
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Generator, Literal, overload
 
 import pytest
 from typing_extensions import override
 
+from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo, JobRepoAdapter
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -57,7 +58,7 @@ class MyJobSerializer(JobSerializer):
     def serialize(
         self, job_body: JobBody | Result
     ) -> SerializedJobBody | SerializedResult:
-        raise NotImplementedError
+        return SerializedJobBody(pickle.dumps(job_body))
 
     @overload
     def deserialize(self, serialized: SerializedJobBody) -> JobBody:
@@ -70,8 +71,62 @@ class MyJobSerializer(JobSerializer):
     def deserialize(
         self, serialized: SerializedJobBody | SerializedResult
     ) -> JobBody | Result:
-        raise NotImplementedError
+        return pickle.loads(serialized)
 
+
+class MathJobBody:
+    def __init__(self, *args: Any, op: str, a: int, b: int, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.op = op
+        self.a = a
+        self.b = b
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, MathJobBody):
+            return NotImplemented
+        return self.op == other.op and self.a == other.a and self.b == other.b
+
+class MathJobSerializer(JobSerializer):
+    @overload
+    def serialize(self, job_body: MathJobBody) -> SerializedJobBody:
+        pass
+
+    @overload
+    def serialize(self, job_body: Result) -> SerializedResult:
+        pass
+
+    @override
+    def serialize(
+        self, job_body: MathJobBody | Result
+    ) -> SerializedJobBody | SerializedResult:
+        if isinstance(job_body, MathJobBody):
+            return SerializedJobBody(
+                json.dumps(
+                    {
+                        "op": job_body.op,
+                        "a": job_body.a,
+                        "b": job_body.b,
+                    }
+                ).encode()
+            )
+        raise ValueError("job_body is not MathJobBody")
+
+    @overload
+    def deserialize(self, serialized: SerializedJobBody) -> MathJobBody:
+        pass
+
+    @overload
+    def deserialize(self, serialized: SerializedResult) -> Result:
+        pass
+
+    def deserialize(
+        self, serialized: SerializedJobBody | SerializedResult
+    ) -> MathJobBody | Result:
+        data = json.loads(serialized.decode())
+        return MathJobBody(
+            op=data["op"],
+            a=data["a"],
+            b=data["b"],
+        )
 
 class TestJobSerializer:
     def test_register_job_serializer(
@@ -101,104 +156,30 @@ class TestJobSerializer:
         with pytest.raises(SerializerNotFoundError, match=job_type):
             job_serializer_registry.get_job_serializer(job_type=job_type)
 
+@pytest.fixture
+def fx_job_repo_adapter() -> Generator[JobRepoAdapter]:
+    job_repo = InMemoryJobRepo()
+    yield job_repo
+    job_repo.teardown()
 
-def test_job_queue_controller_can_be_instantiated() -> None:
-    controller = JobQueueService()
-    assert controller is not None
+@pytest.fixture
+def fx_job_serializer_registry() -> JobSerializerRegistry:
+    return JobSerializerRegistry()
 
-
-class MathJobBody:
-    def __init__(self, *args: Any, op: str, a: int, b: int, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.op = op
-        self.a = a
-        self.b = b
-
+@pytest.fixture
+def fx_job_queue_controller(fx_job_repo_adapter, fx_job_serializer_registry) -> JobQueueService:
+    return JobQueueService(fx_job_repo_adapter, fx_job_serializer_registry)
 
 class TestJobController:
     def _register_my_job_serializer(self) -> None:
-        fx_faker = self.fx_faker
-
-        class MyJobSerializer(JobSerializer):
-            @overload
-            def serialize(self, job_body: JobBody) -> SerializedJobBody:
-                pass
-
-            @overload
-            def serialize(self, job_body: Result) -> SerializedResult:
-                pass
-
-            def serialize(
-                self, job_body: JobBody | Result
-            ) -> SerializedJobBody | SerializedResult:
-                return SerializedJobBody(fx_faker.job_body_serialized())
-
-            @overload
-            def deserialize(self, serialized: SerializedJobBody) -> JobBody:
-                pass
-
-            @overload
-            def deserialize(self, serialized: SerializedResult) -> Result:
-                pass
-
-            def deserialize(
-                self, serialized: SerializedJobBody | SerializedResult
-            ) -> JobBody | Result:
-                return JobBody(fx_faker.job_body())
-
         self.my_job_type = self.fx_faker.job_type()
-
         self._register_serializer(
             job_type=self.my_job_type,
             serializer=MyJobSerializer(),
         )
 
     def _register_math_job_serializer(self) -> None:
-        class MathJobSerializer(JobSerializer):
-            @overload
-            def serialize(self, job_body: MathJobBody) -> SerializedJobBody:
-                pass
-
-            @overload
-            def serialize(self, job_body: Result) -> SerializedResult:
-                pass
-
-            @override
-            def serialize(
-                self, job_body: MathJobBody | Result
-            ) -> SerializedJobBody | SerializedResult:
-                if isinstance(job_body, MathJobBody):
-                    return SerializedJobBody(
-                        json.dumps(
-                            {
-                                "op": job_body.op,
-                                "a": job_body.a,
-                                "b": job_body.b,
-                            }
-                        ).encode()
-                    )
-                raise ValueError("job_body is not MathJobBody")
-
-            @overload
-            def deserialize(self, serialized: SerializedJobBody) -> MathJobBody:
-                pass
-
-            @overload
-            def deserialize(self, serialized: SerializedResult) -> Result:
-                pass
-
-            def deserialize(
-                self, serialized: SerializedJobBody | SerializedResult
-            ) -> MathJobBody | Result:
-                data = json.loads(serialized.decode())
-                return MathJobBody(
-                    op=data["op"],
-                    a=data["a"],
-                    b=data["b"],
-                )
-
         self.math_job_type = self.fx_faker.job_type()
-
         self._register_serializer(
             job_type=self.math_job_type,
             serializer=MathJobSerializer(),
@@ -211,10 +192,9 @@ class TestJobController:
         )
 
     @pytest.fixture(autouse=True)
-    def setup_method(self, fx_faker: Faker) -> None:
+    def setup_method(self, fx_faker: Faker, fx_job_queue_controller: JobQueueService) -> None:
         self.fx_faker = fx_faker
-
-        self.job_controller = JobQueueService()
+        self.job_controller = fx_job_queue_controller
         self._register_my_job_serializer()
         self._register_math_job_serializer()
 
@@ -222,6 +202,20 @@ class TestJobController:
         req = NewJobRequest(
             job_type=self.my_job_type,
             job_body=JobBody(self.fx_faker.job_body()),
+        )
+        job = self.job_controller.add_job(req)
+        assert job.job_body == req.job_body
+        assert job.job_type == req.job_type
+        return job
+
+    def _add_new_job_request_of_math_job_1(self) -> Job:
+        req = NewJobRequest(
+            job_type=self.math_job_type,
+            job_body=JobBody(MathJobBody(
+                op="add",
+                a=self.fx_faker.pyint(-10, 10), 
+                b=self.fx_faker.pyint(20, 50), 
+            )),
         )
         job = self.job_controller.add_job(req)
         assert job.job_body == req.job_body
@@ -274,6 +268,17 @@ class TestJobController:
         assert returned.nice == 0
         assert returned.job_id == job.job_id
 
+    def test_list_jobs_from_nothing(self) -> None:
+        assert self.job_controller.list_jobs() == []
+    
+    def test_list_jobs(self) -> None:
+        job1 = self._add_new_job_request_of_math_job_1()
+        job2 = self._add_new_job_request_of_math_job_1()
+        jobs = self.job_controller.list_jobs()
+        assert len(jobs) == 2
+        assert job1 in jobs
+        assert job2 in jobs
+
     def test_serialize_job(self) -> None:
         job1: Job[MathJobBody] = self.job_controller.add_job(
             self.fx_faker.new_job_request(
@@ -297,37 +302,12 @@ class TestJobController:
 
 class TestJobConsumer:
     @pytest.fixture(autouse=True)
-    def setup_method(self, fx_faker: Faker) -> None:
+    def setup_method(
+        self, fx_faker: Faker, 
+        fx_job_queue_controller: JobQueueService,
+    ) -> None:
         self.faker = fx_faker
-        self.job_controller = JobQueueService()
-
-        class MyJobSerializer(JobSerializer):
-            @overload
-            def serialize(self, job_body: JobBody) -> SerializedJobBody:
-                pass
-
-            @overload
-            def serialize(self, job_body: Result) -> SerializedResult:
-                pass
-
-            def serialize(
-                self, job_body: JobBody | Result
-            ) -> SerializedJobBody | SerializedResult:
-                return SerializedJobBody(pickle.dumps(job_body))
-
-            @overload
-            def deserialize(self, serialized: SerializedJobBody) -> JobBody:
-                pass
-
-            @overload
-            def deserialize(self, serialized: SerializedResult) -> Result:
-                pass
-
-            def deserialize(
-                self, serialized: SerializedJobBody | SerializedResult
-            ) -> JobBody | Result:
-                return pickle.loads(serialized)
-
+        self.job_controller = fx_job_queue_controller
         self.job_type = fx_faker.job_type()
         self.job_controller.job_serializer_registry.register_job_serializer(
             job_type=self.job_type,

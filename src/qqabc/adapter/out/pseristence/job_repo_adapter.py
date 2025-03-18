@@ -21,6 +21,10 @@ class JobRepoAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_jobs(self) -> list[SerializedJob]:
+        raise NotImplementedError
+
+    @abstractmethod
     def add_status(self, s_status: SerializedJobStatus) -> None:
         raise NotImplementedError
 
@@ -44,6 +48,11 @@ class InMemoryJobRepo(JobRepoAdapter):
         self._hist = _hist
         self._status_hist = _job_status
 
+    def teardown(self) -> None:
+        self._queue.clear()
+        self._hist.clear()
+        self._status_hist.clear()
+
     def job_exists(self, job_id: str) -> bool:
         return job_id in self._queue
 
@@ -64,6 +73,9 @@ class InMemoryJobRepo(JobRepoAdapter):
         if (job := self._get_job_from_queue(job_id)) is None:
             return self._get_job_from_hist(job_id)
         return job
+    
+    def list_jobs(self) -> list[SerializedJob]:
+        return list(self._queue.values()) + list(self._hist)
 
     def add_status(self, s_status: SerializedJobStatus) -> None:
         if s_status.job_id not in self._status_hist:
