@@ -13,7 +13,11 @@ from qqabc.application.domain.model.job import (
 )
 from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.common.exceptions import JobNotFoundError
-from qqabc_cli.exception import NotFoundError
+from qqabc_cli.exception import (
+    JobIdNotFoundError,
+    ResultNotFoundError,
+    StatusNotFoundError,
+)
 
 console = Console()
 
@@ -56,16 +60,16 @@ def get(resource: Resource, job_id: str) -> None:
     if resource == Resource.result:
         s_status = _get_status(job_id)
         if s_status is None:
-            raise NotFoundError
+            raise JobIdNotFoundError(job_id)
         if s_status.result_serialized is None:
-            raise NotFoundError
+            raise ResultNotFoundError(job_id)
         _write_result_to_stdout(s_status.result_serialized)
         return
     if resource == Resource.status:
         s_status = _get_status(job_id)
         _render_single_status(s_status)
         if s_status is None:
-            raise NotFoundError
+            raise StatusNotFoundError(job_id)
         return
 
     raise NotImplementedError

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from tdd.fixtures.faker import Faker
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 BAD_ARG_EXIT_CODE = click.UsageError.exit_code
 NOT_FOUND_CODE = 10
@@ -38,6 +38,10 @@ def fx_job_body_file(fx_faker: Faker) -> Generator[str, None, None]:
 
 def _get_stdout(result: ClickResult) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout))
+
+
+def _get_sterr(result: ClickResult) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr))
 
 
 class BaseCliTest:
@@ -97,10 +101,10 @@ class TestCliSubmit(BaseCliTest):
         fname = self.fx_faker.file_name()
         result = runner.invoke(app, ["submit", self.fx_faker.job_type(), "-f", fname])
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stdout = _get_stdout(result)
-        assert "Error" in stdout
-        assert fname in stdout
-        assert "does not exist" in stdout
+        stderr = _get_sterr(result)
+        assert "Error" in stderr
+        assert fname in stderr
+        assert "does not exist" in stderr
 
 
 class TestCliConsume(BaseCliTest):
@@ -115,10 +119,10 @@ class TestCliConsume(BaseCliTest):
         with tempfile.TemporaryDirectory() as d:
             result = runner.invoke(app, ["pop", job_type, "-d", d])
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stdout = _get_stdout(result)
-        assert "Error" in stdout
-        assert "No job with job type" in stdout
-        assert job_type in stdout
+        stderr = _get_sterr(result)
+        assert "Error" in stderr
+        assert "No job with job type" in stderr
+        assert job_type in stderr
 
 
 class AddJobMixin(BaseCliTest):
@@ -178,11 +182,11 @@ class TestCliAddJob(AddJobMixin):
             app, ["pop", job_type, "-d", dirname := self.fx_faker.file_name()]
         )
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stdout = _get_stdout(result)
-        assert "Error" in stdout
-        assert "does not exist" in stdout
-        assert "directory" in stdout
-        assert dirname in stdout
+        stderr = _get_sterr(result)
+        assert "Error" in stderr
+        assert "does not exist" in stderr
+        assert "directory" in stderr
+        assert dirname in stderr
 
     def test_pop_with_invalid_dir2(self) -> None:
         job_type = self.fx_faker.job_type()
@@ -190,10 +194,10 @@ class TestCliAddJob(AddJobMixin):
         with tempfile.NamedTemporaryFile() as f:
             result = runner.invoke(app, ["pop", job_type, "-d", f.name])
             assert result.exit_code == BAD_ARG_EXIT_CODE
-            stdout = _get_stdout(result)
-            assert "Error" in stdout
-            assert "is not a directory" in stdout
-            assert f.name in stdout
+            stderr = _get_sterr(result)
+            assert "Error" in stderr
+            assert "is not a directory" in stderr
+            assert f.name in stderr
 
     def test_post_result_without_args(self) -> None:
         result = runner.invoke(app, ["post"])
@@ -206,18 +210,18 @@ class TestCliPostResult(AddJobMixin):
             app, ["post", job_id := self.fx_faker.job_id(), "-s", "success"]
         )
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stdout = _get_stdout(result)
-        assert "Error" in stdout
-        assert job_id in stdout
-        assert "does not exist" in stdout
+        stderr = _get_sterr(result)
+        assert "Error" in stderr
+        assert job_id in stderr
+        assert "does not exist" in stderr
 
     def test_get_result_when_no_job(self) -> None:
         result = runner.invoke(app, ["get", "result", job_id := self.fx_faker.job_id()])
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stdout = _get_stdout(result)
-        assert "Error" in stdout
-        assert job_id in stdout
-        assert "does not exist" in stdout
+        stderr = _get_sterr(result)
+        assert "Error" in stderr
+        assert job_id in stderr
+        assert "does not exist" in stderr
 
     @staticmethod
     def _assert_status(status: str, stdout: str) -> None:
