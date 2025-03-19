@@ -64,3 +64,15 @@ class AddJobMixin(BaseCliTest):
             )
         assert result.exit_code == 0
         return add_job_type, result
+
+    def _submit_job(self) -> ClickResult:
+        return self.runner.invoke(
+            self.app,
+            ["submit", self.fx_faker.job_type()],
+            input=self.fx_faker.json(),
+        )
+
+    def _submit_job_by_file(self, file_name: str) -> ClickResult:
+        return self.runner.invoke(
+            self.app, ["submit", self.fx_faker.job_type(), "-f", file_name]
+        )

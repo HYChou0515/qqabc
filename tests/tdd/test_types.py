@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING, overload
 
+import msgpack
 import pytest
 
 from qqabc.application.domain.model.job import (
@@ -414,3 +415,14 @@ class TestJobSerializer:
             "Can't instantiate abstract class "
             "MyJobSerializer with abstract method deserialize"
         )
+
+
+class TestSerialization:
+    @pytest.fixture(autouse=True)
+    def setup_method(self, fx_faker: Faker) -> None:
+        self.faker = fx_faker
+
+    def test_serialized_job_serialization(self) -> None:
+        job = self.faker.serialized_job()
+        d = msgpack.packb(job.get_serializable())
+        assert_eq(job, SerializedJob.from_serializable(msgpack.unpackb(d)))
