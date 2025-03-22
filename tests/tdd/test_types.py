@@ -5,20 +5,24 @@ from typing import TYPE_CHECKING, overload
 
 import pytest
 
-from qqabc import JobSerializer
-from qqabc.types import (
+from qqabc.application.domain.model.job import (
     Job,
     JobBody,
     JobStatus,
-    NewJobRequest,
-    NewJobStatusRequest,
-    NewSerializedJobRequest,
-    NewSerializedJobStatusRequest,
     Result,
     SerializedJob,
     SerializedJobBody,
     SerializedResult,
     StatusEnum,
+)
+from qqabc.application.domain.service.job_serializer_registry import JobSerializer
+from qqabc.application.port.in_.post_job_status_use_case import (
+    NewJobStatusRequest,
+    NewSerializedJobStatusRequest,
+)
+from qqabc.application.port.in_.submit_job_use_case import (
+    NewJobRequest,
+    NewSerializedJobRequest,
 )
 
 if TYPE_CHECKING:

@@ -12,6 +12,9 @@ test-style:
 	. .venv/bin/activate && \
 	mypy src/qqabc src/qqabc_cli tests/tdd && \
 	ruff check src/qqabc src/qqabc_cli tests/tdd
+test-bdd:
+	. .venv/bin/activate && \
+	pytest -s tests/bdd  --gherkin-terminal-reporter -v
 style:
 	. .venv/bin/activate && \
 	ruff format src/qqabc src/qqabc_cli tests/tdd && \

@@ -5,15 +5,19 @@ from typing import Literal
 import pytest
 from faker import Faker as _Faker
 
-from qqabc.types import (
+from qqabc.application.domain.model.job import (
     QQABC,
     JobBody,
-    NewJobRequest,
-    NewJobStatusRequest,
-    NewSerializedJobRequest,
     Result,
     SerializedJobBody,
     StatusEnum,
+)
+from qqabc.application.port.in_.post_job_status_use_case import (
+    NewJobStatusRequest,
+)
+from qqabc.application.port.in_.submit_job_use_case import (
+    NewJobRequest,
+    NewSerializedJobRequest,
 )
 
 

@@ -7,13 +7,20 @@ authors = [
     { name = "Chou Hung-Yi", email = "hychou.svm@gmail.com" }
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "dependency-injector>=4.46.0",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
+bdd = [
+    "pytest-bdd>=8.1.0",
+    "sh>=2.2.2",
+    "typer>=0.15.2",
+]
 cli = [
     "typer>=0.15.2",
 ]
@@ -26,7 +33,11 @@ dev = [
     "pytest-freezegun>=0.4.2",
     "pytest-mock>=3.14.0",
     "ruff>=0.9.7",
+    "typer>=0.15.2",
 ]
+
+[tool.pytest.ini_options]
+bdd_features_base_dir = "tests/bdd/features"
 
 [tool.coverage.run]
 branch = true
@@ -98,7 +109,7 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.12
+# Assume Python 3.9
 target-version = "py39"
 
 [tool.ruff.lint.pydocstyle]
@@ -116,7 +127,7 @@ convention = "google"
     # magic value comparison is allowed in tests
     "PLR2004", # Magic value used in comparison, consider replacing `11` with a constant variable
 ]
-"src/qqabc_cli/main.py" = [
+"src/qqabc_cli/commands/*" = [
     "FA100",
 ]
 
