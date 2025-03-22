@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import pickle  # noqa: S403
+import pickle
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pytest
@@ -31,7 +31,7 @@ from qqabc.types import (
 if TYPE_CHECKING:
     from freezegun.api import FrozenDateTimeFactory
 
-    from tests.fixtures.faker import Faker
+    from tdd.fixtures.faker import Faker
 
 
 @pytest.fixture
@@ -320,7 +320,7 @@ class TestJobConsumer:
             def deserialize(
                 self, serialized: SerializedJobBody | SerializedResult
             ) -> JobBody | Result:
-                return pickle.loads(serialized)  # noqa: S301
+                return pickle.loads(serialized)
 
         self.job_type = fx_faker.job_type()
         self.job_controller.job_serializer_registry.register_job_serializer(

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from click.testing import Result as ClickResult
     from pytest_mock import MockerFixture
 
-    from tests.fixtures.faker import Faker
+    from tdd.fixtures.faker import Faker
 
 runner = CliRunner()
 
