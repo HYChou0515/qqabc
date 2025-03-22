@@ -158,6 +158,10 @@ class JobQueueService:
     ) -> SerializedJob:
         pass
 
+    @overload
+    def get_next_job(self, job_type: str, *, deserialize: bool) -> Job | SerializedJob:
+        pass
+
     def get_next_job(
         self, job_type: str, *, deserialize: bool = False
     ) -> Job | SerializedJob:

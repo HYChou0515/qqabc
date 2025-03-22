@@ -11,6 +11,10 @@ def fx_workdir():
         os.chdir(d)
         yield d
 
+def _assert_result_success(result: sp.CompletedProcess[bytes]):
+    assert result.returncode == 0, result.stderr.decode() + result.stdout.decode()
+
+
 @scenario('submit_job.feature', '送出一個job')
 def test_job_submission_送出一個job():
     pass
@@ -32,7 +36,7 @@ def 我送出這個job(job_file_path):
         r = sp.run(["python", "-m", "qqabc_cli", "submit", "job"], 
                 input=f.read(),
                 capture_output=True)
-        assert r.returncode == 0
+        _assert_result_success(r)
     for line in r.stdout.decode().splitlines():
         if "job id" in line:
             job_id = line.split()[-1]
@@ -46,5 +50,5 @@ def 我可以在job_list裡面看到這個job(job_id):
         ["python", "-m", "qqabc_cli", "get", "jobs"], 
         capture_output=True
     )
-    assert r.returncode == 0
+    _assert_result_success(r)
     assert job_id in r.stdout.decode()

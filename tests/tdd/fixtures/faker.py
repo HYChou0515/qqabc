@@ -9,7 +9,9 @@ from qqabc.application.domain.model.job import (
     QQABC,
     JobBody,
     Result,
+    SerializedJob,
     SerializedJobBody,
+    SerializedResult,
     StatusEnum,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
@@ -31,17 +33,24 @@ class Faker(_Faker):
     def job_id(self) -> str:
         return self.uuid4_hex()
 
-    def job_body_serialized(self) -> bytes:
-        return self.json_bytes()
+    def job_body_serialized(self) -> SerializedJobBody:
+        return SerializedJobBody(self.json_bytes())
 
-    def job_result_serialized(self) -> bytes:
-        return self.json_bytes()
+    def job_result_serialized(self) -> SerializedResult:
+        return SerializedResult(self.json_bytes())
 
     def job_type(self) -> str:
         return self.name()
 
-    def job_status(self) -> str:
+    def job_status_enum(self) -> str:
         return self.random_element(["success", "fail", "process"])
+
+    def serialized_job(self) -> SerializedJob:
+        return SerializedJob(
+            job_type=self.job_type(),
+            job_id=self.job_id(),
+            job_body_serialized=self.job_body_serialized(),
+        )
 
     def new_job_request(
         self,

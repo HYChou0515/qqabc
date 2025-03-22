@@ -3,6 +3,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Literal, NewType, TypeVar
 
+from typing_extensions import Self
+
 from qqabc.common.types import StrEnum
 
 if TYPE_CHECKING:
@@ -25,25 +27,6 @@ class StatusEnum(StrEnum):
     FAILED = "FAILED"
 
 
-class SerializedJobStatus:
-    def __init__(  # noqa: PLR0913
-        self,
-        *,
-        status_id: str,
-        job_id: str,
-        issue_time: dt.datetime,
-        status: StatusEnum,
-        detail: str,
-        result_serialized: SerializedResult | None,
-    ) -> None:
-        self.status_id = status_id
-        self.job_id = job_id
-        self.issue_time = issue_time
-        self.status = status
-        self.detail = detail
-        self.result_serialized = result_serialized
-
-
 class QQABC(Enum):
     NO_RESULT = 1
 
@@ -63,7 +46,35 @@ class SupportEq:  # noqa: PLW1641: hash should not be implemented, there's no ne
         return self.__dict__ == others.__dict__
 
 
+class SupportSerialization:
+    def get_serializable(self) -> dict[str, Any]:
+        return self.__dict__
+
+    @classmethod
+    def from_serializable(cls, serializable: dict[str, Any]) -> Self:
+        return cls(**serializable)
+
+
 Result = NewType("Result", object)
+
+
+class SerializedJobStatus(SupportEq, SupportRepr, SupportSerialization):
+    def __init__(  # noqa: PLR0913
+        self,
+        *,
+        status_id: str,
+        job_id: str,
+        issue_time: dt.datetime,
+        status: StatusEnum,
+        detail: str,
+        result_serialized: SerializedResult | None,
+    ) -> None:
+        self.status_id = status_id
+        self.job_id = job_id
+        self.issue_time = issue_time
+        self.status = status
+        self.detail = detail
+        self.result_serialized = result_serialized
 
 
 class JobStatus(SupportEq, SupportRepr):
@@ -85,7 +96,7 @@ class JobStatus(SupportEq, SupportRepr):
         self.result = result
 
 
-class SerializedJob(SupportEq, SupportRepr):
+class SerializedJob(SupportEq, SupportRepr, SupportSerialization):
     def __init__(
         self,
         *,

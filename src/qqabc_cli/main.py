@@ -20,7 +20,7 @@ def create_app() -> typer.Typer:
     return app
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     build_container()
     app = create_app()
     app()

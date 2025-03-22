@@ -92,7 +92,7 @@ class TestCliPostResult(AddJobMixin):
             self._assert_posted_result(aj.job_id, s_result)
             self._assert_posted_status(aj.job_id, status)
 
-            status = self.fx_faker.job_status()
+            status = self.fx_faker.job_status_enum()
 
     def test_get_jobs_from_nothing(self) -> None:
         result = self.runner.invoke(self.app, ["get", "jobs"])

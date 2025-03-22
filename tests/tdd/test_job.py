@@ -3,12 +3,15 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pickle
+import tempfile
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pytest
 from typing_extensions import override
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import (
+    FileJobRepo,
     InMemoryJobRepo,
     JobRepoAdapter,
 )
@@ -22,6 +25,7 @@ from qqabc.application.domain.model.job import (
     SerializedJobBody,
     SerializedResult,
     StatusEnum,
+    SupportEq,
 )
 from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.application.domain.service.job_serializer_registry import (
@@ -30,6 +34,7 @@ from qqabc.application.domain.service.job_serializer_registry import (
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
+    NewSerializedJobStatusRequest,
 )
 from qqabc.application.port.in_.submit_job_use_case import NewJobRequest
 from qqabc.common.exceptions import (
@@ -79,17 +84,12 @@ class MyJobSerializer(JobSerializer):
         return pickle.loads(serialized)
 
 
-class MathJobBody:  # noqa: PLW1641
+class MathJobBody(SupportEq):
     def __init__(self, *args: Any, op: str, a: int, b: int, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.op = op
         self.a = a
         self.b = b
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, MathJobBody):
-            return NotImplemented
-        return self.op == other.op and self.a == other.a and self.b == other.b
 
 
 class MathJobSerializer(JobSerializer):
@@ -165,11 +165,28 @@ class TestJobSerializer:
             job_serializer_registry.get_job_serializer(job_type=job_type)
 
 
-@pytest.fixture
-def fx_job_repo_adapter() -> Generator[JobRepoAdapter]:
+@contextmanager
+def _in_mem_job_repo() -> Generator[JobRepoAdapter]:
     job_repo = InMemoryJobRepo()
     yield job_repo
     job_repo.teardown()
+
+
+@contextmanager
+def _file_job_repo() -> Generator[JobRepoAdapter]:
+    with tempfile.TemporaryDirectory() as d:
+        job_repo = FileJobRepo(d)
+        yield job_repo
+
+
+@pytest.fixture(params=["InMemoryJobRepo", "FileJobRepo"])
+def fx_job_repo_adapter(request: pytest.FixtureRequest) -> Generator[JobRepoAdapter]:
+    if request.param == "InMemoryJobRepo":
+        with _in_mem_job_repo() as job_repo:
+            yield job_repo
+    if request.param == "FileJobRepo":
+        with _file_job_repo() as job_repo:
+            yield job_repo
 
 
 @pytest.fixture
@@ -263,13 +280,21 @@ class TestJobController:
         assert returned.nice == 0
         assert returned.job_id == job.job_id
 
-    def test_get_next_job_from_empty_queue_raise_empty_queue_error(self) -> None:
+    @pytest.mark.parametrize("deserialize", [True, False])
+    def test_get_next_job_from_empty_queue_raise_empty_queue_error(
+        self, *, deserialize: bool
+    ) -> None:
         with pytest.raises(EmptyQueueError, match=self.my_job_type):
-            self.job_controller.get_next_job(job_type=self.my_job_type)
+            self.job_controller.get_next_job(
+                job_type=self.my_job_type, deserialize=deserialize
+            )
 
-    def test_get_next_job_returns_the_job(self) -> None:
+    @pytest.mark.parametrize("deserialize", [True, False])
+    def test_get_next_job_returns_the_job(self, *, deserialize: bool) -> None:
         job = self._add_new_job_request_of_my_job_1()
-        returned = self.job_controller.get_next_job(job_type=self.my_job_type)
+        returned = self.job_controller.get_next_job(
+            job_type=self.my_job_type, deserialize=deserialize
+        )
         self.assert_job_type(job)
         assert returned.nice == 0
         assert returned.job_id == job.job_id
@@ -335,6 +360,27 @@ class TestJobConsumer:
             job_type=self.job_type,
             job_serializer=MyJobSerializer(),
         )
+
+    def test_return_job_serialized_result(self, freezer: FrozenDateTimeFactory) -> None:
+        now = self.faker.date_time(tzinfo=dt.timezone.utc)
+        freezer.move_to(now)
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(
+                job_type=self.job_type,
+            )
+        )
+        status_request = NewSerializedJobStatusRequest(
+            job_id=job.job_id,
+            status=StatusEnum.COMPLETED,
+            detail="Job completed successfully",
+            result_serialized=SerializedResult(b"my result"),
+        )
+        status = self.job_controller.add_job_status(status_request)
+        assert status.job_id == status_request.job_id
+        assert status.issue_time == now
+        assert status.status == status_request.status
+        assert status.detail == status_request.detail
+        assert status.result_serialized == status_request.result_serialized
 
     def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
         now = self.faker.date_time(tzinfo=dt.timezone.utc)

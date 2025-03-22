@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "dependency-injector>=4.46.0",
+    "msgpack>=1.1.0",
 ]
 
 [build-system]
@@ -28,9 +29,10 @@ dev = [
     "coverage[toml]>=7.6.12",
     "faker>=36.1.1",
     "freezegun>=1.5.1",
+    "msgpack-types>=0.5.0",
     "mypy>=1.15.0",
     "pytest>=8.3.4",
-    "pytest-freezegun>=0.4.2",
+    "pytest-freezer>=0.4.9",
     "pytest-mock>=3.14.0",
     "ruff>=0.9.7",
     "typer>=0.15.2",

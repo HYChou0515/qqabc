@@ -1,6 +1,6 @@
 from dependency_injector import containers, providers
 
-from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo
+from qqabc.adapter.out.pseristence.job_repo_adapter import FileJobRepo
 from qqabc.application.domain.service.job_queue_service import JobQueueService
 from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializerRegistry,
@@ -8,10 +8,18 @@ from qqabc.application.domain.service.job_serializer_registry import (
 
 
 class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
+    config = providers.Configuration(
+        ini_files=["config.ini"],
+        default={
+            "debug": False,
+            "root_dir": ".qqabc",
+            "job_dir": ".qqabc/jobs",
+        },
+    )
 
     job_dao = providers.Singleton(
-        InMemoryJobRepo,
+        FileJobRepo,
+        db_root=config.job_dir,
     )
     job_serializer_registry = providers.Singleton(
         JobSerializerRegistry,
