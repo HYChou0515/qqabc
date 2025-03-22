@@ -10,7 +10,7 @@ import pytest
 def encode(obj: Any) -> Any:
     if isinstance(obj, freezegun.api.FakeDatetime):
         return {"__fake_datetime__": obj.isoformat()}
-    raise TypeError("Unsupported type")
+    raise TypeError("Unsupported type")  # pragma: no cover
 
 
 def decode(obj: Any) -> Any:

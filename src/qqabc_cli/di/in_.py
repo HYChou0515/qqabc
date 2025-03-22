@@ -1,4 +1,3 @@
-
 from dependency_injector import containers, providers
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import FileJobRepo

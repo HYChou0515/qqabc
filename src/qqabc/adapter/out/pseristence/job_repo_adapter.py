@@ -164,8 +164,6 @@ class FileJobRepo(JobRepoAdapter):
         if not os.path.exists(sdir):
             return None
         all_status = self._list_status(job_id)
-        if not all_status:
-            return None
         return max(all_status, key=lambda s: s.issue_time)
 
     def pop_largest_priority_job(self, job_type: str) -> SerializedJob | None:
