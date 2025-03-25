@@ -35,9 +35,10 @@ def _pop_from_queue(job_type: str) -> SerializedJob:
 def _pop_to_dir(job_type: str, outdir: str) -> None:
     _check_dir(outdir)
     sjob = _pop_from_queue(job_type)
-    output = Path(outdir) / f"{sjob.job_id}"
+    output = Path(outdir) / f"{sjob.job_id}.job"
     with open(output, "wb") as f:
         f.write(sjob.job_body_serialized)
+    console.print(f"Job consumed into {output}")
 
 
 def _pop_to_stdout(job_type: str) -> None:
@@ -47,8 +48,12 @@ def _pop_to_stdout(job_type: str) -> None:
 
 @app.command()
 def pop(
-    job_type: str, outdir: Annotated[Optional[str], typer.Option("-d")] = None
+    job_type: Annotated[str, typer.Option("-t")] = "",
+    outdir: Annotated[Optional[str], typer.Option("-d")] = ".",
+    *,
+    pipe: Annotated[bool, typer.Option()] = False,
 ) -> None:
-    if outdir:
-        return _pop_to_dir(job_type, outdir)
-    return _pop_to_stdout(job_type)
+    if pipe:
+        return _pop_to_stdout(job_type)
+    outdir = outdir or "."
+    return _pop_to_dir(job_type, outdir)

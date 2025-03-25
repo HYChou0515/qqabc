@@ -1,7 +1,9 @@
 from pytest_bdd import scenario, given, when, then
 
-from bdd.utils import assert_result_success, create_a_job_file, create_a_job_online, get_job_id_by_submission_return, get_stdout, qqabc_cli
+from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli
 import subprocess as sp
+
+from tests.utils import assert_result_success, get_stdout
 
 
 @scenario('consume_job.feature', '可以吃job')
@@ -36,7 +38,7 @@ def step(fx_workdir: str):
 
 @when("我consume job", target_fixture="cusume_job_result")
 def step():
-    r = qqabc_cli(["consume", "job"])
+    r = qqabc_cli(["pop"])
     return r
 
 @then("我可以取得priority最高的job")

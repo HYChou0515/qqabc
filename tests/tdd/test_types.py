@@ -27,7 +27,7 @@ from qqabc.application.port.in_.submit_job_use_case import (
 )
 
 if TYPE_CHECKING:
-    from tdd.fixtures.faker import Faker
+    from tests.tdd.fixtures.faker import Faker
 
 
 def assert_eq(a: object, b: object) -> None:

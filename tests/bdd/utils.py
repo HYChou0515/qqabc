@@ -1,22 +1,9 @@
 import os
-import re
 import subprocess as sp
 
 def qqabc_cli(args: list[str], *, input: bytes = None):
     r = sp.run(["python", "-m", "qqabc_cli", *args], capture_output=True, input=input)
     return r
-
-def assert_result_success(result: sp.CompletedProcess[bytes]):
-    assert result.returncode == 0, result.stderr.decode() + result.stdout.decode()
-
-
-def get_stdout(result: sp.CompletedProcess[bytes]) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout.decode()))
-
-
-def get_sterr(result:  sp.CompletedProcess[bytes]) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr.decode()))
-
 
 def create_a_job_file(workdir: str):
     job_file_path = os.path.join(workdir, "job.txt")

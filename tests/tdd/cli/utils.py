@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 from unittest.mock import patch
 
 import click
@@ -14,18 +13,26 @@ if TYPE_CHECKING:
     from click.testing import Result as ClickResult
     from typer.testing import CliRunner
 
-    from tdd.fixtures.faker import Faker
+    from tests.tdd.fixtures.faker import Faker
 
 BAD_ARG_EXIT_CODE = click.UsageError.exit_code
 NOT_FOUND_CODE = 10
 
 
-def get_stdout(result: ClickResult) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout))
+def job_file_name(job_id: str) -> str:
+    return f"{job_id}.job"
 
 
-def get_sterr(result: ClickResult) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr))
+def if_none(value: Any | Callable[[], Any], fallback: Any | Callable[[], Any]) -> Any:
+    if callable(value):
+        x = value()
+    else:
+        x = value
+    if x is None:
+        if callable(fallback):
+            return fallback()
+        return fallback
+    return x
 
 
 @dataclass
@@ -45,6 +52,21 @@ class BaseCliTest:
         self.runner = fx_runner
 
 
+class PopJobMixin(BaseCliTest):
+    def _pop_job(
+        self, job_type: str | None = None, *, d: str | None = None, pipe: bool = False
+    ) -> ClickResult:
+        commands = ["pop"]
+        if job_type is not None:
+            commands.extend(["-t", job_type])
+        if d is not None:
+            commands.extend(["-d", d])
+        if pipe:
+            commands.append("--pipe")
+        result = self.runner.invoke(self.app, commands)
+        return result
+
+
 class AddJobMixin(BaseCliTest):
     def _add_job(
         self,
@@ -54,9 +76,9 @@ class AddJobMixin(BaseCliTest):
         job_id: str | None = None,
     ) -> tuple[AddJobType, ClickResult]:
         add_job_type = AddJobType(
-            job_type=job_type or self.fx_faker.job_type(),
-            job_body=job_body or self.fx_faker.json(),
-            job_id=job_id or self.fx_faker.job_id(),
+            job_type=if_none(job_type, self.fx_faker.job_type),
+            job_body=if_none(job_body, self.fx_faker.json),
+            job_id=if_none(job_id, self.fx_faker.job_id),
         )
         with patch.object(uuid, "uuid4", return_value=uuid.UUID(add_job_type.job_id)):
             result = self.runner.invoke(

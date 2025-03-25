@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
     from freezegun.api import FrozenDateTimeFactory
 
-    from tdd.fixtures.faker import Faker
+    from tests.tdd.fixtures.faker import Faker
 
 
 @pytest.fixture

@@ -1,1 +1,1 @@
-from bdd.fixtures.stuff import *  # noqa: F403
+from tests.bdd.fixtures.stuff import *  # noqa: F403

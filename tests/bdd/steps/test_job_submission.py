@@ -1,5 +1,6 @@
 from pytest_bdd import scenario, given, when, then
-from bdd.utils import assert_result_success, create_a_job_file, create_a_job_online, get_job_id_by_submission_return, get_stdout, qqabc_cli
+from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli
+from tests.utils import assert_result_success, get_stdout
 
 @scenario('submit_job.feature', '送出一個job')
 def test_job_submission_送出一個job():

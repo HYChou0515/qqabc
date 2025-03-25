@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -14,7 +15,15 @@ if TYPE_CHECKING:
 
     import typer
 
-    from tdd.fixtures.faker import Faker
+    from tests.tdd.fixtures.faker import Faker
+
+
+@pytest.fixture
+def fx_workdir() -> Generator[str, None, None]:
+    """建立臨時資料夾, 並切換到該資料夾"""
+    with tempfile.TemporaryDirectory() as d:
+        os.chdir(d)
+        yield d
 
 
 @pytest.fixture

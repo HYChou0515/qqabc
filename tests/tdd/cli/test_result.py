@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from tdd.cli.utils import (
+from tests.tdd.cli.utils import (
     BAD_ARG_EXIT_CODE,
     NOT_FOUND_CODE,
     AddJobMixin,
     AddJobType,
-    get_stdout,
-    get_sterr,
 )
+from tests.utils import get_stdout, get_sterr
 
 
 class TestCliPostResult(AddJobMixin):
