@@ -29,7 +29,7 @@ class TestCliConsume(AddJobMixin, PopJobMixin):
         assert job_type in stderr
 
     def test_pop_job(self, fx_workdir: str) -> None:
-        job_, _ = self._add_job(job_type="")
+        job_, _ = self._add_job()
         result = self._pop_job()
         assert_result_success(result)
         stdout = get_stdout(result)

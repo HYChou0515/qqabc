@@ -58,7 +58,7 @@ class PopJobMixin(BaseCliTest):
     ) -> ClickResult:
         commands = ["pop"]
         if job_type is not None:
-            commands.extend(["-t", job_type])
+            commands.extend([job_type])
         if d is not None:
             commands.extend(["-d", d])
         if pipe:

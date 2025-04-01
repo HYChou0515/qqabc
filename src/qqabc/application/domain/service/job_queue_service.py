@@ -145,37 +145,41 @@ class JobQueueService:
         return job
 
     @overload
-    def get_next_job(self, job_type: str) -> SerializedJob:
+    def get_next_job(self, job_type: str | None) -> SerializedJob:
         pass
 
     @overload
-    def get_next_job(self, job_type: str, *, deserialize: Literal[True]) -> Job:
+    def get_next_job(self, job_type: str | None, *, deserialize: Literal[True]) -> Job:
         pass
 
     @overload
     def get_next_job(
-        self, job_type: str, *, deserialize: Literal[False]
+        self, job_type: str | None, *, deserialize: Literal[False]
     ) -> SerializedJob:
         pass
 
     @overload
-    def get_next_job(self, job_type: str, *, deserialize: bool) -> Job | SerializedJob:
+    def get_next_job(
+        self, job_type: str | None, *, deserialize: bool
+    ) -> Job | SerializedJob:
         pass
 
     def get_next_job(
-        self, job_type: str, *, deserialize: bool = False
+        self, job_type: str | None, *, deserialize: bool = False
     ) -> Job | SerializedJob:
         if deserialize:
             return self._get_next_job(job_type)
         return self._get_next_sjob(job_type)
 
-    def _get_next_job(self, job_type: str) -> Job:
+    def _get_next_job(self, job_type: str | None) -> Job:
         sjob = self._get_next_sjob(job_type)
         return self._deserialize_job(sjob)
 
-    def _get_next_sjob(self, job_type: str) -> SerializedJob:
+    def _get_next_sjob(self, job_type: str | None) -> SerializedJob:
         sjob = self.job_dao.pop_largest_priority_job(job_type)
         if sjob is None:
+            if job_type is None:
+                raise EmptyQueueError("No jobs in queue")
             raise EmptyQueueError(f"No job with job type: {job_type}")
         return sjob
 
