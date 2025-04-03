@@ -6,9 +6,8 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import ClassVar, TypedDict
 
-import msgpack
-
 from qqabc.application.domain.model.job import SerializedJob, SerializedJobStatus
+from qqabc.common.serializer import serializer
 
 
 class JobRepoAdapterDumps(TypedDict):
@@ -47,14 +46,14 @@ class JobRepoAdapter(ABC):
         raise NotImplementedError
 
     def dump(self) -> bytes:
-        return msgpack.packb(self.dump_dict())
+        return serializer.packb(self.dump_dict())
 
     @abstractmethod
     def dump_dict(self) -> JobRepoAdapterDumps:
         raise NotImplementedError
 
     def load(self, raw: bytes) -> None:
-        return self.load_dict(msgpack.unpackb(raw))
+        return self.load_dict(serializer.unpackb(raw))
 
     @abstractmethod
     def load_dict(self, obj: JobRepoAdapterDumps) -> None:
@@ -173,7 +172,7 @@ class FileJobRepo(JobRepoAdapter):
 
     def add_job(self, s_job: SerializedJob) -> None:
         with open(self._job_path(s_job.job_id), "wb") as f:
-            f.write(msgpack.packb(s_job.get_serializable()))
+            f.write(serializer.packb(s_job.get_serializable()))
 
     def get_job(self, job_id: str) -> SerializedJob | None:
         if (job := self._get_job_from_queue(job_id)) is None:
@@ -191,7 +190,7 @@ class FileJobRepo(JobRepoAdapter):
         sdir = self._status_path(s_status.job_id)
         os.makedirs(sdir, exist_ok=True)
         with open(os.path.join(sdir, s_status.status_id), "wb") as f:
-            f.write(msgpack.packb(s_status.get_serializable()))
+            f.write(serializer.packb(s_status.get_serializable()))
 
     def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
         sdir = self._status_path(job_id)
@@ -278,7 +277,7 @@ class FileJobRepo(JobRepoAdapter):
         if not os.path.exists(fpath):
             return None
         with open(fpath, "rb") as f:
-            return SerializedJob.from_serializable(msgpack.unpack(f))
+            return SerializedJob.from_serializable(serializer.unpackb(f.read()))
 
     def _get_job_from_queue(self, job_id: str) -> SerializedJob | None:
         return self._get_job_from_path(self._job_path(job_id))
@@ -311,7 +310,7 @@ class FileJobRepo(JobRepoAdapter):
         sdir = self._status_path(job_id)
         fpath = os.path.join(sdir, status_id)
         with open(fpath, "rb") as f:
-            return SerializedJobStatus.from_serializable(msgpack.unpack(f))
+            return SerializedJobStatus.from_serializable(serializer.unpackb(f.read()))
 
     def _move_job_to_history(self, job_id: str) -> None:
         os.rename(self._job_path(job_id), self._history_path(job_id))

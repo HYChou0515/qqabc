@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING, overload
 
-import msgpack
 import pytest
 
 from qqabc.application.domain.model.job import (
@@ -25,6 +24,7 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
+from qqabc.common.serializer import serializer
 
 if TYPE_CHECKING:
     from tests.tdd.fixtures.faker import Faker
@@ -435,5 +435,5 @@ class TestSerialization:
 
     def test_serialized_job_serialization(self) -> None:
         job = self.faker.serialized_job()
-        d = msgpack.packb(job.get_serializable())
-        assert_eq(job, SerializedJob.from_serializable(msgpack.unpackb(d)))
+        d = serializer.packb(job.get_serializable())
+        assert_eq(job, SerializedJob.from_serializable(serializer.unpackb(d)))
