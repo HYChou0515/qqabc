@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import itertools as it
 import os
 import shutil
@@ -14,6 +15,13 @@ class JobRepoAdapterDumps(TypedDict):
     queue: list[dict]
     history: list[dict]
     status_history: dict[str, list[dict]]
+
+
+def _get_filo_priority(job: SerializedJob) -> tuple[int, dt.timedelta]:
+    return (
+        job.nice,
+        dt.datetime(1900, 1, 1, tzinfo=dt.timezone.utc) - job.created_time,
+    )
 
 
 class JobRepoAdapter(ABC):
@@ -207,7 +215,7 @@ class FileJobRepo(JobRepoAdapter):
         ]
         if not candidate:
             return None
-        sjob = min(candidate, key=self._get_fifo_priority)
+        sjob = min(candidate, key=_get_filo_priority)
         self._move_job_to_history(sjob.job_id)
         return sjob
 
@@ -260,9 +268,6 @@ class FileJobRepo(JobRepoAdapter):
             ]
             for job_id in sorted(self._list_status_job_ids())
         }
-
-    def _get_fifo_priority(self, job: SerializedJob) -> int:
-        return job.nice
 
     def _history_path(self, job_id: str) -> str:
         return os.path.join(self._hist_dir, job_id)

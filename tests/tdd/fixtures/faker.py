@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Literal
 
 import pytest
@@ -57,7 +58,7 @@ class Faker(_Faker):
             job_type=self.job_type(),
             job_id=self.job_id(),
             job_body_serialized=self.job_body_serialized(),
-            created_time=self.date_time(),
+            created_time=self.date_time(tzinfo=dt.timezone.utc),
             nice=0,
         )
 
@@ -70,7 +71,7 @@ class Faker(_Faker):
         return SerializedJobStatus(
             job_id=job_id_,
             status_id=self.status_id(),
-            issue_time=self.date_time(),
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
             status=self.status_enum(),
             detail=self.sentence(),
             result_serialized=self.job_result_serialized(),
