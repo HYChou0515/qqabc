@@ -1,4 +1,3 @@
-import time
 from pytest_bdd import scenario, given, when, then
 
 from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli
@@ -7,12 +6,12 @@ import subprocess as sp
 from tests.utils import assert_result_success, get_stdout, get_sterr
 
 
-# @scenario('consume_job.feature', '可以吃job')
-# def test_consume_job():
-#     pass
-# @scenario('consume_job.feature', '當job list裡面沒有job')
-# def test_consume_job_no_job():
-#     pass
+@scenario('consume_job.feature', '可以吃job')
+def test_consume_job():
+    pass
+@scenario('consume_job.feature', '當job list裡面沒有job')
+def test_consume_job_no_job():
+    pass
 @scenario('consume_job.feature', '當job list裡面有多個job')
 def test_consume_job_multiple_jobs():
     pass
@@ -34,7 +33,6 @@ def step(fx_workdir: str):
         job_file = create_a_job_file(fx_workdir)
         r = create_a_job_online(job_file)
         last_job_id = get_job_id_by_submission_return(r)
-        time.sleep(0.1)
     return last_job_id
 
 
@@ -57,7 +55,7 @@ def step(cusume_job_result: sp.CompletedProcess[bytes], job_id: str):
 def step(cusume_job_result: sp.CompletedProcess[bytes]):
     assert_result_success(cusume_job_result)
     stdout = get_stdout(cusume_job_result)
-    assert "no job" in stdout
+    assert "No jobs in queue" in stdout
 
 @then("這個job不再存在於job list裡面")
 def step(job_id: str):

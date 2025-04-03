@@ -30,7 +30,8 @@ def _pop_from_queue(job_type: Optional[str]) -> SerializedJob:
     try:
         sjob = svc.get_next_job(job_type, deserialize=False)
     except EmptyQueueError as e:
-        raise typer.BadParameter(str(e)) from e
+        console.print(str(e))
+        raise typer.Exit from e
     return sjob
 
 
