@@ -12,10 +12,10 @@ from tests.tdd.cli.utils import (
 from tests.utils import get_sterr
 
 
-class TestCliPostResult(UpdateStatusMixin, AddJobMixin):
-    def test_get_result_when_no_job(self) -> None:
+class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
+    def test_post_result_to_absent_job(self) -> None:
         result = self.runner.invoke(
-            self.app, ["get", "result", job_id := self.fx_faker.job_id()]
+            self.app, ["update", job_id := self.fx_faker.job_id(), "-s", "success"]
         )
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stderr = get_sterr(result)
@@ -24,15 +24,14 @@ class TestCliPostResult(UpdateStatusMixin, AddJobMixin):
         assert "does not exist" in stderr
 
     @pytest.mark.parametrize("status", ALL_STATUS)
-    def test_get_posted_result(self, status: str) -> None:
+    def test_get_updated_status(self, status: str) -> None:
         aj, _ = self._add_job()
-        result = self.runner.invoke(self.app, ["get", "result", aj.job_id])
+        result = self.runner.invoke(self.app, ["get", "status", aj.job_id])
         assert result.exit_code == NOT_FOUND_CODE
-        assert result.stdout == ""
+        table_headers = ["Status", "Time", "Detail"]
+        assert all(header in result.stdout for header in table_headers)
 
-        for i in range(3):
-            s_result = self._post_status(aj.job_id, status, with_result=i % 2 == 0)
-            self._assert_posted_result(aj.job_id, s_result)
+        for _ in range(3):
+            self._post_status(aj.job_id, status, with_result=False)
             self._assert_posted_status(aj.job_id, status)
-
             status = self.fx_faker.job_status_enum()

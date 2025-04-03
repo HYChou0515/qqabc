@@ -8,6 +8,8 @@ from unittest.mock import patch
 import click
 import pytest
 
+from tests.utils import assert_status
+
 if TYPE_CHECKING:
     import typer
     from click.testing import Result as ClickResult
@@ -100,3 +102,43 @@ class AddJobMixin(BaseCliTest):
         return self.runner.invoke(
             self.app, ["submit", self.fx_faker.job_type(), "-f", file_name]
         )
+
+    def _assert_job_in_table(self, ajs: list[AddJobType], s: str) -> None:
+        table_headers = ["ID", "Type", "Time"]
+        assert all(header in s for header in table_headers)
+        for aj in ajs:
+            assert aj.job_id in s
+            assert aj.job_type in s
+
+
+class UpdateStatusMixin(BaseCliTest):
+    def _assert_posted_status(self, job_id: str, status: str) -> None:
+        result = self.runner.invoke(self.app, ["get", "status", job_id])
+        assert result.exit_code == 0
+        assert_status(status, result.stdout)
+        table_headers = ["Status", "Time", "Detail"]
+        assert all(header in result.stdout for header in table_headers)
+
+    def _assert_posted_result(self, job_id: str, s_result: str | None) -> None:
+        result = self.runner.invoke(self.app, ["get", "result", job_id])
+        if s_result:
+            assert result.exit_code == 0
+            assert s_result.encode() == result.stdout_bytes
+        else:
+            assert result.exit_code == NOT_FOUND_CODE
+            assert result.stdout == ""
+
+    def _post_status(
+        self, job_id: str, status: str, *, with_result: bool = True
+    ) -> str | None:
+        if with_result:
+            s_result = self.fx_faker.json()
+        else:
+            s_result = None
+        result = self.runner.invoke(
+            self.app,
+            ["update", job_id, "-s", status],
+            input=s_result,
+        )
+        assert result.exit_code == 0
+        return s_result

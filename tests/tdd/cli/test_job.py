@@ -9,7 +9,7 @@ from tests.tdd.cli.utils import (
     PopJobMixin,
     job_file_name,
 )
-from tests.utils import assert_result_success, get_sterr
+from tests.utils import assert_result_success, get_stdout, get_sterr
 
 
 class TestCliAddJob(AddJobMixin, PopJobMixin):
@@ -58,3 +58,19 @@ class TestCliAddJob(AddJobMixin, PopJobMixin):
     def test_post_result_without_args(self) -> None:
         result = self.runner.invoke(self.app, ["post"])
         assert result.exit_code == BAD_ARG_EXIT_CODE
+
+    def test_get_jobs_from_nothing(self) -> None:
+        result = self.runner.invoke(self.app, ["get", "jobs"])
+        assert result.exit_code == 0, result.stderr + result.stdout
+        self._assert_job_in_table([], get_stdout(result))
+
+    def test_get_jobs(self) -> None:
+        aj1, _ = self._add_job()
+        result = self.runner.invoke(self.app, ["get", "jobs"])
+        assert result.exit_code == 0, result.stderr + result.stdout
+        self._assert_job_in_table([aj1], get_stdout(result))
+
+        aj2, _ = self._add_job()
+        result = self.runner.invoke(self.app, ["get", "jobs"])
+        assert result.exit_code == 0, result.stderr + result.stdout
+        self._assert_job_in_table([aj1, aj2], get_stdout(result))
