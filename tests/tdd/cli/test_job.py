@@ -61,16 +61,16 @@ class TestCliAddJob(AddJobMixin, PopJobMixin):
 
     def test_get_jobs_from_nothing(self) -> None:
         result = self.runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr + result.stdout
+        assert_result_success(result)
         self._assert_job_in_table([], get_stdout(result))
 
     def test_get_jobs(self) -> None:
         aj1, _ = self._add_job()
         result = self.runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr + result.stdout
+        assert_result_success(result)
         self._assert_job_in_table([aj1], get_stdout(result))
 
         aj2, _ = self._add_job()
         result = self.runner.invoke(self.app, ["get", "jobs"])
-        assert result.exit_code == 0, result.stderr + result.stdout
+        assert_result_success(result)
         self._assert_job_in_table([aj1, aj2], get_stdout(result))

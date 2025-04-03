@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from qqabc.application.domain.service.job_queue_service import JobQueueService
 from tests.tdd.cli.utils import BAD_ARG_EXIT_CODE, AddJobMixin
-from tests.utils import get_stdout, get_sterr
+from tests.utils import assert_result_success, get_stdout, get_sterr
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,7 +32,7 @@ class TestCliSubmit(AddJobMixin):
             patch.object(uuid, "uuid4", return_value=stub_uid) as spy2,
         ):
             result = submit_job()
-            assert result.exit_code == 0
+            assert_result_success(result)
             stdout = get_stdout(result)
             assert "job submitted" in stdout
             assert "job id = " in stdout

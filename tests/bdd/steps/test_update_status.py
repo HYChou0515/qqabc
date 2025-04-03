@@ -5,14 +5,14 @@ from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_b
 from tests.utils import assert_result_success, assert_status, get_stdout
 
 
-@scenario('post_status.feature', '可以新增一個status')
-def test_post_one_status():
+@scenario('update_status.feature', '可以新增一個status')
+def test_update_one_status():
     pass
-@scenario('post_status.feature', '可以新增第多個status')
-def test_post_many_status():
+@scenario('update_status.feature', '可以新增第多個status')
+def test_update_many_status():
     pass
-@scenario('post_status.feature', '新增status可以帶上detail')
-def test_post_status_with_detail():
+@scenario('update_status.feature', '新增status可以帶上detail')
+def test_update_status_with_detail():
     pass
 
 @given("線上有一個job", target_fixture="job_id")

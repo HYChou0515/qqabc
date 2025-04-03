@@ -9,7 +9,7 @@ from tests.tdd.cli.utils import (
     AddJobMixin,
     UpdateStatusMixin,
 )
-from tests.utils import get_sterr
+from tests.utils import assert_result_success, get_stdout, get_sterr
 
 
 class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
@@ -23,15 +23,26 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
         assert job_id in stderr
         assert "does not exist" in stderr
 
-    @pytest.mark.parametrize("status", ALL_STATUS)
-    def test_get_updated_status(self, status: str) -> None:
+    def test_get_status_if_no_status(self) -> None:
         aj, _ = self._add_job()
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id])
         assert result.exit_code == NOT_FOUND_CODE
         table_headers = ["Status", "Time", "Detail"]
         assert all(header in result.stdout for header in table_headers)
 
+    @pytest.mark.parametrize("status", ALL_STATUS)
+    def test_get_updated_status(self, status: str) -> None:
+        aj, _ = self._add_job()
         for _ in range(3):
-            self._post_status(aj.job_id, status, with_result=False)
+            self._post_status(aj.job_id, status)
             self._assert_posted_status(aj.job_id, status)
             status = self.fx_faker.job_status_enum()
+
+    @pytest.mark.parametrize("status", ALL_STATUS)
+    def test_update_status_with_detail(self, status: str) -> None:
+        aj, _ = self._add_job()
+        detail = " ".join(self.fx_faker.words())
+        self._post_status(aj.job_id, status, detail=detail)
+        result = self.runner.invoke(self.app, ["get", "status", aj.job_id])
+        assert_result_success(result)
+        assert detail in get_stdout(result)
