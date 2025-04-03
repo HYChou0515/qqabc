@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Literal
 
 import pytest
@@ -11,6 +12,7 @@ from qqabc.application.domain.model.job import (
     Result,
     SerializedJob,
     SerializedJobBody,
+    SerializedJobStatus,
     SerializedResult,
     StatusEnum,
 )
@@ -33,6 +35,9 @@ class Faker(_Faker):
     def job_id(self) -> str:
         return self.uuid4_hex()
 
+    def status_id(self) -> str:
+        return self.uuid4_hex()
+
     def job_body_serialized(self) -> SerializedJobBody:
         return SerializedJobBody(self.json_bytes())
 
@@ -45,11 +50,31 @@ class Faker(_Faker):
     def job_status_enum(self) -> str:
         return self.random_element(["success", "fail", "process"])
 
+    def status_enum(self) -> StatusEnum:
+        return self.random_element(list(StatusEnum))
+
     def serialized_job(self) -> SerializedJob:
         return SerializedJob(
             job_type=self.job_type(),
             job_id=self.job_id(),
             job_body_serialized=self.job_body_serialized(),
+            created_time=self.date_time(tzinfo=dt.timezone.utc),
+            nice=0,
+        )
+
+    def serialized_status(
+        self,
+        *,
+        job_id: str = ...,  # type: ignore[assignment]
+    ) -> SerializedJobStatus:
+        job_id_ = self.job_id() if job_id is ... else job_id
+        return SerializedJobStatus(
+            job_id=job_id_,
+            status_id=self.status_id(),
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
+            status=self.status_enum(),
+            detail=self.sentence(),
+            result_serialized=self.job_result_serialized(),
         )
 
     def new_job_request(
@@ -81,9 +106,6 @@ class Faker(_Faker):
             job_type=job_type_,
             job_body_serialized=job_body_serialized_,
         )
-
-    def status_enum(self) -> StatusEnum:
-        return self.random_element(StatusEnum)
 
     def new_status_request(
         self,

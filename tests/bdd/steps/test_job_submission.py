@@ -1,54 +1,23 @@
-import os
-import tempfile
-import pytest
 from pytest_bdd import scenario, given, when, then
-import subprocess as sp
-
-@pytest.fixture
-def fx_workdir():
-    """建立臨時資料夾，並切換到該資料夾"""
-    with tempfile.TemporaryDirectory() as d:
-        os.chdir(d)
-        yield d
-
-def _assert_result_success(result: sp.CompletedProcess[bytes]):
-    assert result.returncode == 0, result.stderr.decode() + result.stdout.decode()
-
+from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli
+from tests.utils import assert_result_success, get_stdout
 
 @scenario('submit_job.feature', '送出一個job')
 def test_job_submission_送出一個job():
     pass
 
 @given("我有一個job", target_fixture="job_file_path")
-def 我有一個job(fx_workdir):
-    """建立 job 檔案"""
-    job_file_path = os.path.join(fx_workdir, "job.txt")
-
-    with open(job_file_path, "w") as f:
-        f.write("這是一個測試 job 檔案\n")
-
-    return job_file_path
+def 我有一個job(fx_workdir: str):
+    return create_a_job_file(fx_workdir)
 
 @when("我送出這個job", target_fixture="job_id")
 def 我送出這個job(job_file_path):
-    """送出 job"""
-    with open(job_file_path, "rb") as f:
-        r = sp.run(["python", "-m", "qqabc_cli", "submit", "job"], 
-                input=f.read(),
-                capture_output=True)
-        _assert_result_success(r)
-    for line in r.stdout.decode().splitlines():
-        if "job id" in line:
-            job_id = line.split()[-1]
-            break
-    return job_id
+    r = create_a_job_online(job_file_path)
+    assert_result_success(r)
+    return get_job_id_by_submission_return(r)
 
 @then("我可以在job list裡面看到這個job")
 def 我可以在job_list裡面看到這個job(job_id):
-    """檢查 job 是否在 job list 中"""
-    r = sp.run(
-        ["python", "-m", "qqabc_cli", "get", "jobs"], 
-        capture_output=True
-    )
-    _assert_result_success(r)
-    assert job_id in r.stdout.decode()
+    r = qqabc_cli(["get", "jobs"])
+    assert_result_success(r)
+    assert job_id in get_stdout(r)

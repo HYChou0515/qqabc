@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING, overload
 
-import msgpack
 import pytest
 
 from qqabc.application.domain.model.job import (
@@ -25,9 +24,10 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
+from qqabc.common.serializer import serializer
 
 if TYPE_CHECKING:
-    from tdd.fixtures.faker import Faker
+    from tests.tdd.fixtures.faker import Faker
 
 
 def assert_eq(a: object, b: object) -> None:
@@ -78,22 +78,21 @@ class TestEntityInstantiation:
         assert StatusEnum.COMPLETED == "COMPLETED"
         assert StatusEnum.FAILED == "FAILED"
 
-    @pytest.mark.parametrize("set_default", [None, "nice"])
-    def test_job(self, fx_faker: Faker, set_default: str | None) -> None:
+    def test_job(self, fx_faker: Faker) -> None:
         kwargs = {
             "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body": fx_faker.job_body(),
             "nice": fx_faker.pyint(),
+            "created_time": fx_faker.date_time(),
         }
-        if set_default == "nice":
-            del kwargs["nice"]
 
         job = Job(**kwargs)  # type: ignore[arg-type]
         assert job.job_type == kwargs["job_type"]
         assert job.job_id == kwargs["job_id"]
         assert job.job_body == kwargs["job_body"]
-        assert job.nice == kwargs.get("nice", 0)
+        assert job.nice == kwargs["nice"]
+        assert job.created_time == kwargs["created_time"]
 
     def test_job_eq(self, fx_faker: Faker) -> None:
         kwargs1 = {
@@ -101,12 +100,14 @@ class TestEntityInstantiation:
             "job_id": fx_faker.uuid4(),
             "job_body": fx_faker.job_body(),
             "nice": fx_faker.pyint(),
+            "created_time": fx_faker.date_time(),
         }
         kwargs2 = {
             "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body": fx_faker.job_body(),
             "nice": fx_faker.pyint(),
+            "created_time": fx_faker.date_time(),
         }
         assert_eq_ne(Job, kwargs1, kwargs2)
 
@@ -115,10 +116,13 @@ class TestEntityInstantiation:
             job_type="job_type",
             job_id="job_id",
             job_body=JobBody("job_body"),
+            created_time=dt.datetime(1999, 1, 23, tzinfo=dt.timezone.utc),
             nice=0,
         )
         assert repr(job) == (
-            "Job(job_type='job_type', job_id='job_id', job_body='job_body', nice=0)"
+            "Job(job_type='job_type', job_id='job_id', "
+            "job_body='job_body', "
+            "created_time=1999-01-23T00:00:00+00:00, nice=0)"
         )
 
         class SubJob(Job):
@@ -128,40 +132,44 @@ class TestEntityInstantiation:
             job_type="job_type",
             job_id="job_id",
             job_body=JobBody("job_body"),
+            created_time=dt.datetime(1999, 1, 23, tzinfo=dt.timezone.utc),
             nice=0,
         )
         assert repr(sub_job) == (
-            "SubJob(job_type='job_type', job_id='job_id', job_body='job_body', nice=0)"
+            "SubJob(job_type='job_type', job_id='job_id', "
+            "job_body='job_body', "
+            "created_time=1999-01-23T00:00:00+00:00, nice=0)"
         )
 
-    @pytest.mark.parametrize("set_default", [None, "nice"])
-    def test_serialized_job(self, fx_faker: Faker, set_default: str | None) -> None:
+    def test_serialized_job(self, fx_faker: Faker) -> None:
         kwargs = {
             "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body_serialized": fx_faker.job_body_serialized(),
+            "created_time": fx_faker.date_time(),
             "nice": fx_faker.pyint(),
         }
-        if set_default == "nice":
-            del kwargs["nice"]
 
         serialized_job = SerializedJob(**kwargs)  # type: ignore[arg-type]
         assert serialized_job.job_type == kwargs["job_type"]
         assert serialized_job.job_id == kwargs["job_id"]
         assert serialized_job.job_body_serialized == kwargs["job_body_serialized"]
-        assert serialized_job.nice == kwargs.get("nice", 0)
+        assert serialized_job.nice == kwargs["nice"]
+        assert serialized_job.created_time == kwargs["created_time"]
 
     def test_serialized_job_eq(self, fx_faker: Faker) -> None:
         kwargs1 = {
             "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body_serialized": fx_faker.job_body_serialized(),
+            "created_time": fx_faker.date_time(),
             "nice": fx_faker.pyint(),
         }
         kwargs2 = {
             "job_type": fx_faker.job_type(),
             "job_id": fx_faker.uuid4(),
             "job_body_serialized": fx_faker.job_body_serialized(),
+            "created_time": fx_faker.date_time(),
             "nice": fx_faker.pyint(),
         }
         assert_eq_ne(SerializedJob, kwargs1, kwargs2)
@@ -171,11 +179,13 @@ class TestEntityInstantiation:
             job_type="job_type",
             job_id="job_id",
             job_body_serialized=SerializedJobBody(b"job_body"),
+            created_time=dt.datetime(1999, 1, 23, tzinfo=dt.timezone.utc),
             nice=0,
         )
         assert repr(job) == (
             "SerializedJob(job_type='job_type', "
             "job_id='job_id', job_body_serialized=b'job_body', "
+            "created_time=1999-01-23T00:00:00+00:00, "
             "nice=0)"
         )
 
@@ -186,11 +196,14 @@ class TestEntityInstantiation:
             job_type="job_type",
             job_id="job_id",
             job_body_serialized=SerializedJobBody(b"job_body"),
+            created_time=dt.datetime(1999, 1, 23, tzinfo=dt.timezone.utc),
             nice=0,
         )
         assert repr(sub) == (
             "Sub(job_type='job_type', job_id='job_id', "
-            "job_body_serialized=b'job_body', nice=0)"
+            "job_body_serialized=b'job_body', "
+            "created_time=1999-01-23T00:00:00+00:00, "
+            "nice=0)"
         )
 
     def test_job_status(self, fx_faker: Faker) -> None:
@@ -240,9 +253,8 @@ class TestEntityInstantiation:
         )
         assert repr(job_status) == (
             "JobStatus(status_id='status_id', job_id='job_id', "
-            "issue_time=datetime.datetime(1999, 1, 1, 0, 0, "
-            "tzinfo=datetime.timezone.utc), "
-            "status=<StatusEnum.INITIAL: 'INITIAL'>, "
+            "issue_time=1999-01-01T00:00:00+00:00, "
+            "status='INITIAL', "
             "detail='detail', result='result')"
         )
 
@@ -260,9 +272,8 @@ class TestEntityInstantiation:
         assert repr(sub_job_status) == (
             "SubJobStatus(status_id='status_id', "
             "job_id='job_id', "
-            "issue_time=datetime.datetime(1999, 1, 1, 0, 0, "
-            "tzinfo=datetime.timezone.utc), "
-            "status=<StatusEnum.INITIAL: 'INITIAL'>, detail='detail', result='result')"
+            "issue_time=1999-01-01T00:00:00+00:00, "
+            "status='INITIAL', detail='detail', result='result')"
         )
 
     @pytest.mark.parametrize("set_default", [None, "nice"])
@@ -424,5 +435,5 @@ class TestSerialization:
 
     def test_serialized_job_serialization(self) -> None:
         job = self.faker.serialized_job()
-        d = msgpack.packb(job.get_serializable())
-        assert_eq(job, SerializedJob.from_serializable(msgpack.unpackb(d)))
+        d = serializer.packb(job.get_serializable())
+        assert_eq(job, SerializedJob.from_serializable(serializer.unpackb(d)))

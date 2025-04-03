@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from qqabc.application.domain.service.job_queue_service import JobQueueService
-from tdd.cli.utils import BAD_ARG_EXIT_CODE, AddJobMixin, get_stdout, get_sterr
+from tests.tdd.cli.utils import BAD_ARG_EXIT_CODE, AddJobMixin
+from tests.utils import get_stdout, get_sterr
 
 if TYPE_CHECKING:
     from collections.abc import Callable

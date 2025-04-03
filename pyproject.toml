@@ -66,6 +66,12 @@ exclude_also = [
      # Don't complain about type hints:
     "@overload",
 ]
+omit = [
+    "tests/utils.py",
+    "tests/tdd/utils.py",
+    "tests/bdd/utils.py",
+    "tests/tdd/cli/utils.py",
+]
 
 [tool.mypy]
 python_version="3.9"
