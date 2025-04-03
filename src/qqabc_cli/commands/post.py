@@ -21,13 +21,13 @@ app = typer.Typer()
 
 
 class Status(str, Enum):
-    process = "process"
+    running = "running"
     success = "success"
     fail = "fail"
 
 
 def _map_status(status: Status) -> StatusEnum:
-    if status == Status.process:
+    if status == Status.running:
         return StatusEnum.RUNNING
     if status == Status.success:
         return StatusEnum.COMPLETED
@@ -37,7 +37,7 @@ def _map_status(status: Status) -> StatusEnum:
 
 
 @app.command()
-def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
+def update(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
     svc = di_job_queue_service()
     result = sys.stdin.buffer.read()
     if not result:

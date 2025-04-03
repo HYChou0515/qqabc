@@ -3,18 +3,19 @@ from __future__ import annotations
 import pytest
 
 from tests.tdd.cli.utils import (
+    ALL_STATUS,
     BAD_ARG_EXIT_CODE,
     NOT_FOUND_CODE,
     AddJobMixin,
     AddJobType,
 )
-from tests.utils import get_stdout, get_sterr
+from tests.utils import assert_status, get_stdout, get_sterr
 
 
 class TestCliPostResult(AddJobMixin):
     def test_post_result_to_absent_job(self) -> None:
         result = self.runner.invoke(
-            self.app, ["post", job_id := self.fx_faker.job_id(), "-s", "success"]
+            self.app, ["update", job_id := self.fx_faker.job_id(), "-s", "success"]
         )
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stderr = get_sterr(result)
@@ -32,17 +33,6 @@ class TestCliPostResult(AddJobMixin):
         assert job_id in stderr
         assert "does not exist" in stderr
 
-    @staticmethod
-    def _assert_status(status: str, stdout: str) -> None:
-        if status == "process":
-            assert "RUNNING" in stdout
-        elif status == "success":
-            assert "COMPLETED" in stdout
-        elif status == "fail":
-            assert "FAILED" in stdout
-        else:
-            raise NotImplementedError
-
     def _assert_posted_result(self, job_id: str, s_result: str | None) -> None:
         result = self.runner.invoke(self.app, ["get", "result", job_id])
         if s_result:
@@ -55,7 +45,7 @@ class TestCliPostResult(AddJobMixin):
     def _assert_posted_status(self, job_id: str, status: str) -> None:
         result = self.runner.invoke(self.app, ["get", "status", job_id])
         assert result.exit_code == 0
-        self._assert_status(status, result.stdout)
+        assert_status(status, result.stdout)
         table_headers = ["Status", "Time", "Detail"]
         assert all(header in result.stdout for header in table_headers)
 
@@ -68,13 +58,13 @@ class TestCliPostResult(AddJobMixin):
             s_result = None
         result = self.runner.invoke(
             self.app,
-            ["post", job_id, "-s", status],
+            ["update", job_id, "-s", status],
             input=s_result,
         )
         assert result.exit_code == 0
         return s_result
 
-    @pytest.mark.parametrize("status", ["process", "success", "fail"])
+    @pytest.mark.parametrize("status", ALL_STATUS)
     def test_get_posted_result(self, status: str) -> None:
         aj, _ = self._add_job()
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id])

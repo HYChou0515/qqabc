@@ -23,6 +23,7 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
+from tests.tdd.cli.utils import ALL_STATUS
 
 
 class Faker(_Faker):
@@ -48,7 +49,7 @@ class Faker(_Faker):
         return self.name()
 
     def job_status_enum(self) -> str:
-        return self.random_element(["success", "fail", "process"])
+        return self.random_element(ALL_STATUS)
 
     def status_enum(self) -> StatusEnum:
         return self.random_element(list(StatusEnum))

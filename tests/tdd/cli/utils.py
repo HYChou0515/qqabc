@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 BAD_ARG_EXIT_CODE = click.UsageError.exit_code
 NOT_FOUND_CODE = 10
 
+ALL_STATUS = ("running", "success", "fail")
+
 
 def job_file_name(job_id: str) -> str:
     return f"{job_id}.job"
