@@ -1,15 +1,12 @@
 from __future__ import annotations
 
+import datetime as dt
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, Literal, NewType, TypeVar
+from typing import Any, Generic, Literal, NewType, TypeVar
 
 from typing_extensions import Self
 
 from qqabc.common.types import StrEnum
-
-if TYPE_CHECKING:
-    import datetime as dt
-
 
 GJobBody = TypeVar("GJobBody", bound=Any)
 SerializedJobBody = NewType("SerializedJobBody", bytes)
@@ -33,10 +30,15 @@ class QQABC(Enum):
 
 class SupportRepr:
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}"
-            f"({', '.join([f'{k}={v!r}' for k, v in self.__dict__.items()])})"
-        )
+        tokens = []
+        for k, v in self.__dict__.items():
+            if isinstance(v, dt.datetime):
+                tokens.append(f"{k}={v.isoformat()}")
+            elif isinstance(v, str):
+                tokens.append(f"{k}='{v}'")
+            else:
+                tokens.append(f"{k}={v}")
+        return f"{self.__class__.__name__}({', '.join(tokens)})"
 
 
 class SupportEq:  # noqa: PLW1641: hash should not be implemented, there's no need to put this object into a set
@@ -103,11 +105,13 @@ class SerializedJob(SupportEq, SupportRepr, SupportSerialization):
         job_type: str,
         job_id: str,
         job_body_serialized: SerializedJobBody,
-        nice: int = 0,
+        created_time: dt.datetime,
+        nice: int,
     ) -> None:
         self.job_type = job_type
         self.job_id = job_id
         self.job_body_serialized = job_body_serialized
+        self.created_time = created_time
         self.nice = nice
 
 
@@ -116,11 +120,18 @@ NO_RESULT = QQABC.NO_RESULT
 
 class Job(SupportEq, SupportRepr, Generic[GJobBody]):
     def __init__(
-        self, *, job_type: str, job_id: str, job_body: GJobBody, nice: int = 0
+        self,
+        *,
+        job_type: str,
+        job_id: str,
+        job_body: GJobBody,
+        created_time: dt.datetime,
+        nice: int,
     ) -> None:
         self.job_type = job_type
         self.job_id = job_id
         self.job_body = job_body
+        self.created_time = created_time
         self.nice = nice
 
 

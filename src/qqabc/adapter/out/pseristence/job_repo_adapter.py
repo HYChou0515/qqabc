@@ -208,7 +208,7 @@ class FileJobRepo(JobRepoAdapter):
         ]
         if not candidate:
             return None
-        sjob = min(candidate, key=lambda job: job.nice)
+        sjob = min(candidate, key=self._get_fifo_priority)
         self._move_job_to_history(sjob.job_id)
         return sjob
 
@@ -261,6 +261,9 @@ class FileJobRepo(JobRepoAdapter):
             ]
             for job_id in sorted(self._list_status_job_ids())
         }
+
+    def _get_fifo_priority(self, job: SerializedJob) -> int:
+        return job.nice
 
     def _history_path(self, job_id: str) -> str:
         return os.path.join(self._hist_dir, job_id)

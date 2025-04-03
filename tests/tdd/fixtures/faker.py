@@ -57,6 +57,8 @@ class Faker(_Faker):
             job_type=self.job_type(),
             job_id=self.job_id(),
             job_body_serialized=self.job_body_serialized(),
+            created_time=self.date_time(),
+            nice=0,
         )
 
     def serialized_status(

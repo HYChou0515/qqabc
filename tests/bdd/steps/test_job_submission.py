@@ -7,7 +7,7 @@ def test_job_submission_送出一個job():
     pass
 
 @given("我有一個job", target_fixture="job_file_path")
-def 我有一個job(fx_workdir):
+def 我有一個job(fx_workdir: str):
     return create_a_job_file(fx_workdir)
 
 @when("我送出這個job", target_fixture="job_id")

@@ -30,7 +30,7 @@ def step():
 
 @given("job list裡面有多個job", target_fixture="job_id")
 def step(fx_workdir: str):
-    for _ in range(3):
+    for _ in range(10):
         job_file = create_a_job_file(fx_workdir)
         r = create_a_job_online(job_file)
         last_job_id = get_job_id_by_submission_return(r)

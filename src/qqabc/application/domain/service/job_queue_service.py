@@ -56,6 +56,8 @@ class JobQueueService:
             job_id=sjob.job_id,
             job_type=sjob.job_type,
             job_body=serializer.deserialize(sjob.job_body_serialized),
+            created_time=sjob.created_time,
+            nice=sjob.nice,
         )
         return job
 
@@ -65,6 +67,8 @@ class JobQueueService:
             job_id=job.job_id,
             job_type=job.job_type,
             job_body_serialized=serializer.serialize(job.job_body),
+            created_time=job.created_time,
+            nice=job.nice,
         )
         return sjob
 
@@ -130,6 +134,8 @@ class JobQueueService:
             job_id=uuid.uuid4().hex,
             job_type=req.job_type,
             job_body_serialized=req.job_body_serialized,
+            created_time=dt.datetime.now(tz=dt.timezone.utc),
+            nice=0,
         )
         self.job_dao.add_job(sjob)
         return sjob
@@ -139,6 +145,8 @@ class JobQueueService:
             job_id=uuid.uuid4().hex,
             job_type=req.job_type,
             job_body=req.job_body,
+            created_time=dt.datetime.now(tz=dt.timezone.utc),
+            nice=0,
         )
         sjob = self._serialize_job(job)
         self.job_dao.add_job(sjob)
