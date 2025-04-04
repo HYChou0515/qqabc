@@ -11,7 +11,7 @@ from qqabc.application.domain.model.job import (
     SerializedResult,
 )
 from qqabc.common.exceptions import JobNotFoundError
-from qqabc_cli.di.out import di_job_queue_service
+from qqabc_cli.di.out import di_job_queue_service, di_status_service
 from qqabc_cli.exception import (
     JobIdNotFoundError,
     ResultNotFoundError,
@@ -24,7 +24,7 @@ app = typer.Typer(name="get")
 
 
 def _get_status(job_id: str) -> Optional[SerializedJobStatus]:
-    svc = di_job_queue_service()
+    svc = di_status_service()
     try:
         s_status = svc.get_latest_status(job_id, deserialize=False)
     except JobNotFoundError as e:
@@ -96,6 +96,6 @@ def _get_and_render_single_status(job_id: str) -> None:
 
 
 def _list_status(job_id: str) -> None:
-    svc = di_job_queue_service()
+    svc = di_status_service()
     s_status = svc.list_job_status(job_id)
     _render_many_status(s_status)
