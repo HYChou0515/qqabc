@@ -8,6 +8,8 @@ from unittest.mock import patch
 import click
 import pytest
 
+from tests.utils import assert_result_success, assert_status
+
 if TYPE_CHECKING:
     import typer
     from click.testing import Result as ClickResult
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
 
 BAD_ARG_EXIT_CODE = click.UsageError.exit_code
 NOT_FOUND_CODE = 10
+
+ALL_STATUS = ("running", "success", "fail")
 
 
 def job_file_name(job_id: str) -> str:
@@ -84,7 +88,7 @@ class AddJobMixin(BaseCliTest):
             result = self.runner.invoke(
                 self.app, ["submit", add_job_type.job_type], input=add_job_type.job_body
             )
-        assert result.exit_code == 0
+        assert_result_success(result)
         return add_job_type, result
 
     def _submit_job(self) -> ClickResult:
@@ -98,3 +102,52 @@ class AddJobMixin(BaseCliTest):
         return self.runner.invoke(
             self.app, ["submit", self.fx_faker.job_type(), "-f", file_name]
         )
+
+    def _assert_job_in_table(self, ajs: list[AddJobType], s: str) -> None:
+        table_headers = ["ID", "Type", "Time"]
+        assert all(header in s for header in table_headers)
+        for aj in ajs:
+            assert aj.job_id in s
+            assert aj.job_type in s
+
+
+class UpdateStatusMixin(BaseCliTest):
+    def _assert_posted_status(self, job_id: str, status: str) -> None:
+        result = self.runner.invoke(self.app, ["get", "status", job_id])
+        assert_result_success(result)
+        assert_status(status, result.stdout)
+        table_headers = ["Status", "Time", "Detail"]
+        assert all(header in result.stdout for header in table_headers)
+
+    def _assert_posted_result(self, job_id: str, s_result: str | None) -> None:
+        result = self.runner.invoke(self.app, ["get", "result", job_id])
+        if s_result:
+            assert_result_success(result)
+            assert s_result.encode() == result.stdout_bytes
+        else:
+            assert result.exit_code == NOT_FOUND_CODE
+            assert result.stdout == ""
+
+    def _post_status(
+        self,
+        job_id: str,
+        status: str,
+        *,
+        with_result: bool = False,
+        detail: str | None = None,
+    ) -> str | None:
+        command = ["update", job_id, "-s", status]
+        if with_result:
+            s_result = self.fx_faker.json()
+            command.append("--stdin")
+        else:
+            s_result = None
+        if detail is not None:
+            command.extend(["-d", detail])
+        result = self.runner.invoke(
+            self.app,
+            command,
+            input=s_result,
+        )
+        assert_result_success(result)
+        return s_result

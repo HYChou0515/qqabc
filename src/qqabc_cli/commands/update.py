@@ -1,6 +1,6 @@
 import sys
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
@@ -21,13 +21,13 @@ app = typer.Typer()
 
 
 class Status(str, Enum):
-    process = "process"
+    running = "running"
     success = "success"
     fail = "fail"
 
 
 def _map_status(status: Status) -> StatusEnum:
-    if status == Status.process:
+    if status == Status.running:
         return StatusEnum.RUNNING
     if status == Status.success:
         return StatusEnum.COMPLETED
@@ -37,17 +37,22 @@ def _map_status(status: Status) -> StatusEnum:
 
 
 @app.command()
-def post(job_id: str, status: Annotated[Status, typer.Option("-s")]) -> None:
+def update(
+    *,
+    job_id: str,
+    status: Annotated[Status, typer.Option("-s")],
+    detail: Annotated[Optional[str], typer.Option("-d")] = None,
+    is_read_stdin: Annotated[bool, typer.Option("--stdin")] = False,
+) -> None:
     svc = di_job_queue_service()
-    result = sys.stdin.buffer.read()
-    if not result:
-        result = None
+    if is_read_stdin:
+        result = SerializedResult(sys.stdin.buffer.read())
     else:
-        result = SerializedResult(result)
+        result = None
     req = NewSerializedJobStatusRequest(
         job_id=job_id,
         status=_map_status(status),
-        detail="",
+        detail="" if detail is None else detail,
         result_serialized=result,
     )
     try:

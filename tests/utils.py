@@ -16,6 +16,16 @@ def assert_result_success(result: sp.CompletedProcess[bytes] | ClickResult):
         return assert_result_success_subprocess(result)
     return assert_result_success_click(result)
 
+def assert_status(status: str, stdout: str) -> None:
+    if status == "running":
+        assert "RUNNING" in stdout
+    elif status == "success":
+        assert "COMPLETED" in stdout
+    elif status == "fail":
+        assert "FAILED" in stdout
+    else:
+        raise NotImplementedError
+
 def get_stdout_subprocess(result: sp.CompletedProcess[bytes]) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout.decode()))
 
