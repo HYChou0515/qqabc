@@ -3,8 +3,6 @@ from __future__ import annotations
 import abc
 from typing import Generic
 
-from typing_extensions import overload
-
 from qqabc.application.domain.model.job import (
     GJobBody,
     GResult,
@@ -17,27 +15,11 @@ from qqabc.common.exceptions import SerializerNotFoundError
 class JobSerializer(
     abc.ABC, Generic[GJobBody, GSerializedJobBody, GResult, GSerializedResult]
 ):
-    @overload
-    def serialize(self, job_body: GJobBody) -> GSerializedJobBody:
-        pass
-
-    @overload
-    def serialize(self, job_body: GResult) -> GSerializedResult:
-        pass
-
     @abc.abstractmethod
     def serialize(
         self, job_body: GJobBody | GResult
     ) -> GSerializedJobBody | GSerializedResult:
         raise NotImplementedError
-
-    @overload
-    def deserialize(self, serialized: GSerializedJobBody) -> GJobBody:
-        pass
-
-    @overload
-    def deserialize(self, serialized: GSerializedResult) -> GResult:
-        pass
 
     @abc.abstractmethod
     def deserialize(
