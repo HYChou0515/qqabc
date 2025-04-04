@@ -77,7 +77,7 @@ class IStatusService(ABC):
         pass
 
 
-class StatusService:
+class StatusService(IStatusService):
     def __init__(
         self,
         job_svc: IJobQueueService,
