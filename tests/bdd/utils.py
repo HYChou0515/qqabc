@@ -18,6 +18,13 @@ def create_a_job_online(job_file_path: str):
         r = qqabc_cli(["submit", "job"], input=f.read())
     return r
 
+def update_status(job_id: str, status: str, detail: str = None):
+    command = ["update", job_id, "-s", status]
+    if detail is not None:
+        command.extend(["-d", detail])
+    r = qqabc_cli(command)
+    return r
+
 def get_job_id_by_submission_return(r: sp.CompletedProcess[bytes]):
     for line in r.stdout.decode().splitlines():
         if "job id" in line:

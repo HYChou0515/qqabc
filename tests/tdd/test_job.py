@@ -417,6 +417,23 @@ class TestJobConsumer:
             assert status2.result == NO_RESULT
         assert status1 == status2
 
+    def test_list_job_status(
+        self,
+    ) -> None:
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(job_type=self.job_type)
+        )
+        statuses = self.job_controller.list_job_status(job.job_id)
+        assert len(statuses) == 0
+        added_status = []
+        for _ in range(3):
+            s = self.job_controller.add_job_status(
+                self.faker.new_status_request(job_id=job.job_id)
+            )
+            added_status.append(s)
+        statuses = self.job_controller.list_job_status(job.job_id)
+        assert len(statuses) == 3
+
     @pytest.mark.parametrize("with_result", [True, False])
     @pytest.mark.parametrize("multiple_statuses", [1, 2, 100])
     def test_get_job_result(

@@ -306,3 +306,7 @@ class JobQueueService:
         if deserialize:
             return self._deserialize_status(s_status, job=job)
         return s_status
+
+    def list_job_status(self, job_id: str) -> list[SerializedJobStatus]:
+        s_status_list = list(self.job_dao.iter_status(job_id))
+        return s_status_list

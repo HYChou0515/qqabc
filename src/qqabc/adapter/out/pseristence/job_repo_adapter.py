@@ -5,10 +5,13 @@ import itertools as it
 import os
 import shutil
 from abc import ABC, abstractmethod
-from typing import ClassVar, TypedDict
+from typing import TYPE_CHECKING, ClassVar, TypedDict
 
 from qqabc.application.domain.model.job import SerializedJob, SerializedJobStatus
 from qqabc.common.serializer import serializer
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class JobRepoAdapterDumps(TypedDict):
@@ -47,6 +50,10 @@ class JobRepoAdapter(ABC):
 
     @abstractmethod
     def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
         raise NotImplementedError
 
     @abstractmethod
@@ -93,9 +100,12 @@ class InMemoryJobRepo(JobRepoAdapter):
         self._status_hist[s_status.job_id].append(s_status)
 
     def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+        return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
+
+    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
         if job_id not in self._status_hist:
-            return None
-        return max(self._status_hist[job_id], key=lambda s: s.issue_time)
+            return
+        yield from self._status_hist[job_id]
 
     def pop_largest_priority_job(self, job_type: str | None) -> SerializedJob | None:
         jobs_with_type = [
@@ -201,11 +211,11 @@ class FileJobRepo(JobRepoAdapter):
             f.write(serializer.packb(s_status.get_serializable()))
 
     def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
-        sdir = self._status_path(job_id)
-        if not os.path.exists(sdir):
-            return None
-        all_status = self._list_status(job_id)
-        return max(all_status, key=lambda s: s.issue_time)
+        return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
+
+    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
+        for status_id in self._list_status_ids_of_job(job_id):
+            yield self._get_status_from_job_and_status_id(job_id, status_id)
 
     def pop_largest_priority_job(self, job_type: str | None) -> SerializedJob | None:
         candidate: list[SerializedJob] = [
@@ -300,14 +310,10 @@ class FileJobRepo(JobRepoAdapter):
         return os.listdir(self._status_dir)
 
     def _list_status_ids_of_job(self, job_id: str) -> list[str]:
-        return os.listdir(self._status_path(job_id))
-
-    def _list_status(self, job_id: str) -> list[SerializedJobStatus]:
-        results = [
-            self._get_status_from_job_and_status_id(job_id, status_id)
-            for status_id in sorted(self._list_status_ids_of_job(job_id))
-        ]
-        return results
+        p = self._status_path(job_id)
+        if not os.path.exists(p):
+            return []
+        return os.listdir(p)
 
     def _get_status_from_job_and_status_id(
         self, job_id: str, status_id: str
