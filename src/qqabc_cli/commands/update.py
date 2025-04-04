@@ -13,7 +13,7 @@ from qqabc.application.port.in_.post_job_status_use_case import (
     NewSerializedJobStatusRequest,
 )
 from qqabc.common.exceptions import JobNotFoundError
-from qqabc_cli.di.out import di_job_queue_service
+from qqabc_cli.di.out import di_status_service
 
 console = Console()
 
@@ -44,7 +44,7 @@ def update(
     detail: Annotated[Optional[str], typer.Option("-d")] = None,
     is_read_stdin: Annotated[bool, typer.Option("--stdin")] = False,
 ) -> None:
-    svc = di_job_queue_service()
+    svc = di_status_service()
     if is_read_stdin:
         result = SerializedResult(sys.stdin.buffer.read())
     else:

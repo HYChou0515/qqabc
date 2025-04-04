@@ -25,6 +25,7 @@ from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializer,
     JobSerializerRegistry,
 )
+from qqabc.application.domain.service.status_service import StatusService
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
     NewSerializedJobStatusRequest,
@@ -172,6 +173,17 @@ def fx_job_queue_controller(
     return JobQueueService(fx_job_repo_adapter, fx_job_serializer_registry)
 
 
+@pytest.fixture
+def fx_status_svc(
+    fx_job_queue_controller: JobQueueService,
+    fx_job_repo_adapter: JobRepoAdapter,
+    fx_job_serializer_registry: JobSerializerRegistry,
+) -> StatusService:
+    return StatusService(
+        fx_job_queue_controller, fx_job_repo_adapter, fx_job_serializer_registry
+    )
+
+
 class TestJobController:
     def _register_my_job_serializer(self) -> None:
         self.my_job_type = self.fx_faker.job_type()
@@ -316,76 +328,22 @@ class TestJobController:
             )
 
 
-class TestJobConsumer:
+class TestUtils:
     @pytest.fixture(autouse=True)
     def setup_method(
         self,
         fx_faker: Faker,
         fx_job_queue_controller: JobQueueService,
+        fx_status_svc: StatusService,
     ) -> None:
         self.faker = fx_faker
-        self.job_controller = fx_job_queue_controller
         self.job_type = fx_faker.job_type()
+        self.status_svc = fx_status_svc
+        self.job_controller = fx_job_queue_controller
         self.job_controller.job_serializer_registry.register_job_serializer(
             job_type=self.job_type,
             job_serializer=MyJobSerializer(),
         )
-
-    def test_return_job_serialized_result(self, freezer: FrozenDateTimeFactory) -> None:
-        now = self.faker.date_time(tzinfo=dt.timezone.utc)
-        freezer.move_to(now)
-        job = self.job_controller.add_job(
-            self.faker.new_job_request(
-                job_type=self.job_type,
-            )
-        )
-        status_request = NewSerializedJobStatusRequest(
-            job_id=job.job_id,
-            status=StatusEnum.COMPLETED,
-            detail="Job completed successfully",
-            result_serialized=SerializedResult(b"my result"),
-        )
-        status = self.job_controller.add_job_status(status_request)
-        assert status.job_id == status_request.job_id
-        assert status.issue_time == now
-        assert status.status == status_request.status
-        assert status.detail == status_request.detail
-        assert status.result_serialized == status_request.result_serialized
-
-    def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
-        now = self.faker.date_time(tzinfo=dt.timezone.utc)
-        freezer.move_to(now)
-        job = self.job_controller.add_job(
-            self.faker.new_job_request(
-                job_type=self.job_type,
-            )
-        )
-        status_request = NewJobStatusRequest(
-            job_id=job.job_id,
-            status=StatusEnum.COMPLETED,
-            detail="Job completed successfully",
-            result=Result("my result"),
-        )
-        status = self.job_controller.add_job_status(status_request)
-        assert status.job_id == status_request.job_id
-        assert status.issue_time == now
-        assert status.status == status_request.status
-        assert status.detail == status_request.detail
-        assert status.result == status_request.result
-
-    def test_get_job_result_of_non_existed_job(self) -> None:
-        job_id = self.faker.uuid4()
-        with pytest.raises(JobNotFoundError, match=job_id):
-            self.job_controller.get_latest_status(job_id)
-
-    @pytest.mark.parametrize("pop_job", [True, False])
-    def test_get_job_result_of_no_status_job(self, *, pop_job: bool) -> None:
-        job = self.job_controller.add_job(
-            self.faker.new_job_request(job_type=self.job_type)
-        )
-        if pop_job:
-            self.job_controller.get_next_job(job_type=self.job_type)
-        assert self.job_controller.get_latest_status(job.job_id) is None
 
     def _assert_job_status_is_same_as_added(
         self,
@@ -403,13 +361,13 @@ class TestJobConsumer:
         latest_status: tuple[dt.datetime | None, JobStatus | None] = None, None
         for _ in range(multiple_statuses):
             freezer.move_to(t := self.faker.date_time(tzinfo=dt.timezone.utc))
-            s = self.job_controller.add_job_status(
+            s = self.status_svc.add_job_status(
                 self.faker.new_status_request(job_id=job.job_id, result=result)
             )
             if latest_status[0] is None or t > latest_status[0]:
                 latest_status = t, s
         status1 = latest_status[1]
-        status2 = self.job_controller.get_latest_status(job.job_id)
+        status2 = self.status_svc.get_latest_status(job.job_id)
         assert status2 is not None
         if with_result:
             assert status2.result == result
@@ -417,41 +375,16 @@ class TestJobConsumer:
             assert status2.result == NO_RESULT
         assert status1 == status2
 
-    def test_list_job_status(
-        self,
-    ) -> None:
-        job = self.job_controller.add_job(
-            self.faker.new_job_request(job_type=self.job_type)
-        )
-        statuses = self.job_controller.list_job_status(job.job_id)
-        assert len(statuses) == 0
-        added_status = []
-        for _ in range(3):
-            s = self.job_controller.add_job_status(
-                self.faker.new_status_request(job_id=job.job_id)
-            )
-            added_status.append(s)
-        statuses = self.job_controller.list_job_status(job.job_id)
-        assert len(statuses) == 3
 
-    @pytest.mark.parametrize("with_result", [True, False])
-    @pytest.mark.parametrize("multiple_statuses", [1, 2, 100])
-    def test_get_job_result(
-        self,
-        *,
-        with_result: bool,
-        multiple_statuses: int,
-        freezer: FrozenDateTimeFactory,
-    ) -> None:
+class TestJobConsumer(TestUtils):
+    @pytest.mark.parametrize("pop_job", [True, False])
+    def test_get_job_result_of_no_status_job(self, *, pop_job: bool) -> None:
         job = self.job_controller.add_job(
             self.faker.new_job_request(job_type=self.job_type)
         )
-        self._assert_job_status_is_same_as_added(
-            job,
-            with_result=with_result,
-            multiple_statuses=multiple_statuses,
-            freezer=freezer,
-        )
+        if pop_job:
+            self.job_controller.get_next_job(job_type=self.job_type)
+        assert self.status_svc.get_latest_status(job.job_id) is None
 
     @pytest.mark.parametrize("with_result", [True, False])
     @pytest.mark.parametrize("multiple_statuses", [1, 2, 100])
@@ -472,3 +405,88 @@ class TestJobConsumer:
             multiple_statuses=multiple_statuses,
             freezer=freezer,
         )
+
+
+class TestStatusService(TestUtils):
+    @pytest.mark.parametrize("with_result", [True, False])
+    @pytest.mark.parametrize("multiple_statuses", [1, 2, 100])
+    def test_get_job_result(
+        self,
+        *,
+        with_result: bool,
+        multiple_statuses: int,
+        freezer: FrozenDateTimeFactory,
+    ) -> None:
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(job_type=self.job_type)
+        )
+        self._assert_job_status_is_same_as_added(
+            job,
+            with_result=with_result,
+            multiple_statuses=multiple_statuses,
+            freezer=freezer,
+        )
+
+    def test_return_job_serialized_result(self, freezer: FrozenDateTimeFactory) -> None:
+        now = self.faker.date_time(tzinfo=dt.timezone.utc)
+        freezer.move_to(now)
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(
+                job_type=self.job_type,
+            )
+        )
+        status_request = NewSerializedJobStatusRequest(
+            job_id=job.job_id,
+            status=StatusEnum.COMPLETED,
+            detail="Job completed successfully",
+            result_serialized=SerializedResult(b"my result"),
+        )
+        status = self.status_svc.add_job_status(status_request)
+        assert status.job_id == status_request.job_id
+        assert status.issue_time == now
+        assert status.status == status_request.status
+        assert status.detail == status_request.detail
+        assert status.result_serialized == status_request.result_serialized
+
+    def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
+        now = self.faker.date_time(tzinfo=dt.timezone.utc)
+        freezer.move_to(now)
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(
+                job_type=self.job_type,
+            )
+        )
+        status_request = NewJobStatusRequest(
+            job_id=job.job_id,
+            status=StatusEnum.COMPLETED,
+            detail="Job completed successfully",
+            result=Result("my result"),
+        )
+        status = self.status_svc.add_job_status(status_request)
+        assert status.job_id == status_request.job_id
+        assert status.issue_time == now
+        assert status.status == status_request.status
+        assert status.detail == status_request.detail
+        assert status.result == status_request.result
+
+    def test_list_job_status(
+        self,
+    ) -> None:
+        job = self.job_controller.add_job(
+            self.faker.new_job_request(job_type=self.job_type)
+        )
+        statuses = self.status_svc.list_job_status(job.job_id)
+        assert len(statuses) == 0
+        added_status = []
+        for _ in range(3):
+            s = self.status_svc.add_job_status(
+                self.faker.new_status_request(job_id=job.job_id)
+            )
+            added_status.append(s)
+        statuses = self.status_svc.list_job_status(job.job_id)
+        assert len(statuses) == 3
+
+    def test_get_job_result_of_non_existed_job(self) -> None:
+        job_id = self.faker.uuid4()
+        with pytest.raises(JobNotFoundError, match=job_id):
+            self.status_svc.get_latest_status(job_id)
