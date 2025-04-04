@@ -1,6 +1,6 @@
 import datetime as dt
 import sys
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
@@ -45,6 +45,13 @@ def _render_single_status(s_status: Optional[SerializedJobStatus]) -> None:
     console.print(table)
 
 
+def _render_many_status(s_status: list[SerializedJobStatus]) -> None:
+    table = Table("Status", "Time", "Detail")
+    for s in s_status:
+        table.add_row(s.status, _render_datetime(s.issue_time), s.detail)
+    console.print(table)
+
+
 def _write_result_to_stdout(s_result: SerializedResult) -> None:
     sys.stdout.buffer.write(s_result)
 
@@ -70,8 +77,25 @@ def get_result(job_id: str) -> None:
 
 
 @app.command(name="status")
-def get_status(job_id: str) -> None:
+def get_status(
+    *,
+    job_id: str,
+    all_status: Annotated[bool, typer.Option("--all", "-a")] = False,
+) -> None:
+    if all_status:
+        _list_status(job_id)
+    else:
+        _get_and_render_single_status(job_id)
+
+
+def _get_and_render_single_status(job_id: str) -> None:
     s_status = _get_status(job_id)
     _render_single_status(s_status)
     if s_status is None:
         raise StatusNotFoundError(job_id)
+
+
+def _list_status(job_id: str) -> None:
+    svc = di_job_queue_service()
+    s_status = svc.list_job_status(job_id)
+    _render_many_status(s_status)

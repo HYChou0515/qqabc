@@ -1,6 +1,6 @@
 from pytest_bdd import scenario, given, when, then
 
-from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli
+from tests.bdd.utils import create_a_job_file, create_a_job_online, get_job_id_by_submission_return, qqabc_cli, update_status
 
 from tests.utils import assert_result_success, assert_status, get_stdout
 
@@ -24,23 +24,23 @@ def step(fx_workdir: str):
 
 @when("我update status", target_fixture="status_and_detail")
 def step(job_id: str):
-    r = qqabc_cli(["update", job_id, "-s", "running"])
+    r = update_status(job_id, "running")
     assert_result_success(r)
     return ("running", None)
 
 @when("我update status多次", target_fixture="status_and_detail")
 def step(job_id: str):
-    r = qqabc_cli(["update", job_id, "-s", "running"])
+    r = update_status(job_id, "running")
     assert_result_success(r)
-    r = qqabc_cli(["update", job_id, "-s", "fail"])
+    r = update_status(job_id, "fail")
     assert_result_success(r)
-    r = qqabc_cli(["update", job_id, "-s", "success"])
+    r = update_status(job_id, "success")
     assert_result_success(r)
     return ("success", None)
 
 @when("update status with detail", target_fixture="status_and_detail")
 def step(job_id: str):
-    r = qqabc_cli(["update", job_id, "-s", "fail", "-d", "some detail"])
+    r = update_status(job_id, "fail", "some detail")
     assert_result_success(r)
     return ("fail", "some detail")
 

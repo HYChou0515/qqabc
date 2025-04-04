@@ -108,6 +108,9 @@ class Faker(_Faker):
             job_body_serialized=job_body_serialized_,
         )
 
+    def job_result(self) -> Result:
+        return Result(self.json())
+
     def new_status_request(
         self,
         *,
