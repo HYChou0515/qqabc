@@ -138,6 +138,10 @@ convention = "google"
 "src/qqabc_cli/commands/*" = [
     "FA100",
 ]
+"**/*.pyi" = [
+    "PYI001",
+    "PYI052",
+]
 
 [tool.ruff.lint]
 preview = true

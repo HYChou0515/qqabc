@@ -3,9 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Literal
-
-from typing_extensions import overload
+from typing import TYPE_CHECKING
 
 from qqabc.application.domain.model.job import (
     Job,
@@ -28,34 +26,8 @@ if TYPE_CHECKING:
 
 
 class IJobQueueService(ABC):
-    @overload
-    def get_job(self, job_id: str) -> SerializedJob:
-        pass
-
-    @overload
-    def get_job(self, job_id: str, *, deserialize: Literal[True]) -> Job:
-        pass
-
-    @overload
-    def get_job(
-        self, job_id: str, *, deserialize: Literal[False] = False
-    ) -> SerializedJob:
-        pass
-
     @abstractmethod
     def get_job(self, job_id: str, *, deserialize: bool = False) -> Job | SerializedJob:
-        pass
-
-    @overload
-    def list_jobs(self) -> list[SerializedJob]:
-        pass
-
-    @overload
-    def list_jobs(self, *, deserialize: Literal[True]) -> list[Job]:
-        pass
-
-    @overload
-    def list_jobs(self, *, deserialize: Literal[False] = False) -> list[SerializedJob]:
         pass
 
     @abstractmethod
@@ -64,37 +36,9 @@ class IJobQueueService(ABC):
     ) -> list[SerializedJob] | list[Job]:
         pass
 
-    @overload
-    def add_job(self, new_job_request: NewJobRequest) -> Job:
-        pass
-
-    @overload
-    def add_job(self, new_job_request: NewSerializedJobRequest) -> SerializedJob:
-        pass
-
     @abstractmethod
     def add_job(
         self, new_job_request: NewJobRequest | NewSerializedJobRequest
-    ) -> Job | SerializedJob:
-        pass
-
-    @overload
-    def get_next_job(self, job_type: str | None) -> SerializedJob:
-        pass
-
-    @overload
-    def get_next_job(self, job_type: str | None, *, deserialize: Literal[True]) -> Job:
-        pass
-
-    @overload
-    def get_next_job(
-        self, job_type: str | None, *, deserialize: Literal[False]
-    ) -> SerializedJob:
-        pass
-
-    @overload
-    def get_next_job(
-        self, job_type: str | None, *, deserialize: bool
     ) -> Job | SerializedJob:
         pass
 
@@ -149,20 +93,6 @@ class JobQueueService(IJobQueueService):
         )
         return sjob
 
-    @overload
-    def get_job(self, job_id: str) -> SerializedJob:
-        pass
-
-    @overload
-    def get_job(self, job_id: str, *, deserialize: Literal[True]) -> Job:
-        pass
-
-    @overload
-    def get_job(
-        self, job_id: str, *, deserialize: Literal[False] = False
-    ) -> SerializedJob:
-        pass
-
     def get_job(self, job_id: str, *, deserialize: bool = False) -> Job | SerializedJob:
         sjob = self.job_dao.get_job(job_id)
         if sjob is None:
@@ -171,18 +101,6 @@ class JobQueueService(IJobQueueService):
             return self._deserialize_job(sjob)
         return sjob
 
-    @overload
-    def list_jobs(self) -> list[SerializedJob]:
-        pass
-
-    @overload
-    def list_jobs(self, *, deserialize: Literal[True]) -> list[Job]:
-        pass
-
-    @overload
-    def list_jobs(self, *, deserialize: Literal[False] = False) -> list[SerializedJob]:
-        pass
-
     def list_jobs(
         self, *, deserialize: bool = False
     ) -> list[SerializedJob] | list[Job]:
@@ -190,14 +108,6 @@ class JobQueueService(IJobQueueService):
         if deserialize:
             return [self._deserialize_job(job) for job in jobs]
         return jobs
-
-    @overload
-    def add_job(self, new_job_request: NewJobRequest) -> Job:
-        pass
-
-    @overload
-    def add_job(self, new_job_request: NewSerializedJobRequest) -> SerializedJob:
-        pass
 
     def add_job(
         self, new_job_request: NewJobRequest | NewSerializedJobRequest
@@ -228,26 +138,6 @@ class JobQueueService(IJobQueueService):
         sjob = self._serialize_job(job)
         self.job_dao.add_job(sjob)
         return job
-
-    @overload
-    def get_next_job(self, job_type: str | None) -> SerializedJob:
-        pass
-
-    @overload
-    def get_next_job(self, job_type: str | None, *, deserialize: Literal[True]) -> Job:
-        pass
-
-    @overload
-    def get_next_job(
-        self, job_type: str | None, *, deserialize: Literal[False]
-    ) -> SerializedJob:
-        pass
-
-    @overload
-    def get_next_job(
-        self, job_type: str | None, *, deserialize: bool
-    ) -> Job | SerializedJob:
-        pass
 
     def get_next_job(
         self, job_type: str | None, *, deserialize: bool = False

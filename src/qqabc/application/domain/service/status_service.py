@@ -5,8 +5,6 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Literal
 
-from typing_extensions import overload
-
 from qqabc.application.domain.model.job import (
     NO_RESULT,
     QQABC,
@@ -34,36 +32,10 @@ if TYPE_CHECKING:
 
 
 class IStatusService(ABC):
-    @overload
-    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        pass
-
-    @overload
-    def add_job_status(
-        self, request: NewSerializedJobStatusRequest
-    ) -> SerializedJobStatus:
-        pass
-
     @abstractmethod
     def add_job_status(
         self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
     ) -> JobStatus | SerializedJobStatus:
-        pass
-
-    @overload
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        pass
-
-    @overload
-    def get_latest_status(
-        self, job_id: str, *, deserialize: Literal[True]
-    ) -> JobStatus | None:
-        pass
-
-    @overload
-    def get_latest_status(
-        self, job_id: str, *, deserialize: Literal[False]
-    ) -> SerializedJobStatus | None:
         pass
 
     @abstractmethod
@@ -158,38 +130,12 @@ class StatusService(IStatusService):
         self.job_dao.add_status(s_status)
         return status
 
-    @overload
-    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        pass
-
-    @overload
-    def add_job_status(
-        self, request: NewSerializedJobStatusRequest
-    ) -> SerializedJobStatus:
-        pass
-
     def add_job_status(
         self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
     ) -> JobStatus | SerializedJobStatus:
         if isinstance(request, NewJobStatusRequest):
             return self._add_job_status(request)
         return self._add_serialized_job_status(request)
-
-    @overload
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        pass
-
-    @overload
-    def get_latest_status(
-        self, job_id: str, *, deserialize: Literal[True]
-    ) -> JobStatus | None:
-        pass
-
-    @overload
-    def get_latest_status(
-        self, job_id: str, *, deserialize: Literal[False]
-    ) -> SerializedJobStatus | None:
-        pass
 
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True
