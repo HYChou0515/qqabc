@@ -25,28 +25,30 @@ def assert_status(status: str, stdout: str) -> None:
         assert "FAILED" in stdout
     else:
         raise NotImplementedError
+    
+RICH_SPACER_CHAR = r"[\s╭─╮│╰╯┏━┳┡╇┩]"
 
 def get_stdout_subprocess(result: sp.CompletedProcess[bytes]) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout.decode()))
+    return re.sub(r"\s+", " ", re.sub(RICH_SPACER_CHAR, " ", result.stdout.decode()))
 
 
 def get_sterr_subprocess(result:  sp.CompletedProcess[bytes]) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr.decode()))
+    return re.sub(r"\s+", " ", re.sub(RICH_SPACER_CHAR, " ", result.stderr.decode()))
 
 
 def get_stdout_click(result: ClickResult) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stdout))
+    return re.sub(r"\s+", " ", re.sub(RICH_SPACER_CHAR, " ", result.stdout))
 
 
 def get_sterr_click(result: ClickResult) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[\s╭─╮│╰╯]", " ", result.stderr))
+    return re.sub(r"\s+", " ", re.sub(RICH_SPACER_CHAR, " ", result.stderr))
 
 def get_stdout(result: sp.CompletedProcess[bytes] | ClickResult) -> str:
     if isinstance(result, sp.CompletedProcess):
         return get_stdout_subprocess(result)
     return get_stdout_click(result)
 
-def get_sterr(result: sp.CompletedProcess[bytes] | ClickResult) -> str:
+def get_stderr(result: sp.CompletedProcess[bytes] | ClickResult) -> str:
     if isinstance(result, sp.CompletedProcess):
         return get_sterr_subprocess(result)
     return get_sterr_click(result)

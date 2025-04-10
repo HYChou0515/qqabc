@@ -9,7 +9,7 @@ from tests.tdd.cli.utils import (
     AddJobMixin,
     UpdateStatusMixin,
 )
-from tests.utils import assert_result_success, assert_status, get_stdout, get_sterr
+from tests.utils import assert_result_success, assert_status, get_stderr, get_stdout
 
 
 class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
@@ -18,7 +18,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
             self.app, ["update", job_id := self.fx_faker.job_id(), "-s", "success"]
         )
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stderr = get_sterr(result)
+        stderr = get_stderr(result)
         assert "Error" in stderr
         assert job_id in stderr
         assert "does not exist" in stderr

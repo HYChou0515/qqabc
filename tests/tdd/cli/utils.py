@@ -58,15 +58,22 @@ class BaseCliTest:
 
 class PopJobMixin(BaseCliTest):
     def _pop_job(
-        self, job_type: str | None = None, *, d: str | None = None, pipe: bool = False
+        self,
+        job_type: str | None = None,
+        *,
+        d: str | None = None,
+        pipe: bool = False,
+        fpath: str | None = None,
     ) -> ClickResult:
-        commands = ["pop"]
+        commands = ["consume", "job"]
         if job_type is not None:
             commands.extend([job_type])
         if d is not None:
-            commands.extend(["-d", d])
+            commands.extend(["--to-dir", d])
         if pipe:
-            commands.append("--pipe")
+            commands.append("--to-stdout")
+        if fpath is not None:
+            commands.extend(["--to-file", fpath])
         result = self.runner.invoke(self.app, commands)
         return result
 

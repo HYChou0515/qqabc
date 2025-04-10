@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from tests.tdd.fixtures.faker import Faker
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def fx_workdir() -> Generator[str, None, None]:
     """建立臨時資料夾, 並切換到該資料夾"""
     d = tempfile.mkdtemp()
