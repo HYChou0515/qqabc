@@ -39,7 +39,8 @@ def _submit_with_stdin(job_type: str) -> None:
 
 @app.command()
 def submit(
-    job_type: str, file_path: Annotated[Optional[str], typer.Option("-f")] = None
+    job_type: str,
+    file_path: Annotated[Optional[str], typer.Option("-f", "--file")] = None,
 ) -> None:
     if file_path is not None:
         return _submit_with_file(job_type, file_path)

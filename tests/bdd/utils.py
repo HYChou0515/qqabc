@@ -13,9 +13,20 @@ def create_a_job_file(workdir: str):
 
     return job_file_path
 
-def create_a_job_online(job_file_path: str):
+def _create_a_job_online_with_stdin(job_file_path: str):
     with open(job_file_path, "rb") as f:
         r = qqabc_cli(["submit", "job"], input=f.read())
+    return r
+
+def _create_a_job_online_with_file(job_file_path: str):
+    r = qqabc_cli(["submit", "job", "--file", job_file_path])
+    return r
+
+def create_a_job_online(job_file_path: str, *, stdin=True):
+    if stdin:
+        r = _create_a_job_online_with_stdin(job_file_path)
+    else:
+        r = _create_a_job_online_with_file(job_file_path)
     return r
 
 def update_status(job_id: str, status: str, detail: str = None):
