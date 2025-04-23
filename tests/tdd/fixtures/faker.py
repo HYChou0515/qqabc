@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
 
 import pytest
 from faker import Faker as _Faker
 
 from qqabc.application.domain.model.job import (
-    QQABC,
     JobBody,
     Result,
     SerializedJob,
     SerializedJobBody,
-    SerializedJobStatus,
     SerializedResult,
     StatusEnum,
 )
@@ -63,21 +60,6 @@ class Faker(_Faker):
             nice=0,
         )
 
-    def serialized_status(
-        self,
-        *,
-        job_id: str = ...,  # type: ignore[assignment]
-    ) -> SerializedJobStatus:
-        job_id_ = self.job_id() if job_id is ... else job_id
-        return SerializedJobStatus(
-            job_id=job_id_,
-            status_id=self.status_id(),
-            issue_time=self.date_time(tzinfo=dt.timezone.utc),
-            status=self.status_enum(),
-            detail=self.sentence(),
-            result_serialized=self.job_result_serialized(),
-        )
-
     def new_job_request(
         self,
         *,
@@ -117,17 +99,14 @@ class Faker(_Faker):
         job_id: str = ...,  # type: ignore[assignment]
         status: StatusEnum = ...,  # type: ignore[assignment]
         detail: str = ...,  # type: ignore[assignment]
-        result: Result | Literal[QQABC.NO_RESULT] = ...,  # type: ignore[assignment]
     ) -> NewJobStatusRequest:
         job_id_ = self.uuid4() if job_id is ... else job_id
         status_ = self.status_enum() if status is ... else status
         detail_ = self.sentence() if detail is ... else detail
-        result_ = self.job_result() if result is ... else result
         return NewJobStatusRequest(
             job_id=job_id_,
             status=status_,
             detail=detail_,
-            result=result_,
         )
 
 

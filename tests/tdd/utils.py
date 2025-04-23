@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 import pickle
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, overload
 
 import pytest
 
 from qqabc.application.domain.model.job import (
-    NO_RESULT,
-    QQABC,
     Job,
     JobBody,
     JobStatus,
@@ -79,28 +77,18 @@ class TestUtils:
         self,
         job: Job,
         *,
-        with_result: bool,
         multiple_statuses: int,
         freezer: FrozenDateTimeFactory,
     ) -> None:
-        result: Result | Literal[QQABC.NO_RESULT]
-        if with_result:
-            result = Result(self.faker.json())
-        else:
-            result = NO_RESULT
         latest_status: tuple[dt.datetime | None, JobStatus | None] = None, None
         for _ in range(multiple_statuses):
             freezer.move_to(t := self.faker.date_time(tzinfo=dt.timezone.utc))
             s = self.status_svc.add_job_status(
-                self.faker.new_status_request(job_id=job.job_id, result=result)
+                self.faker.new_status_request(job_id=job.job_id)
             )
             if latest_status[0] is None or t > latest_status[0]:
                 latest_status = t, s
         status1 = latest_status[1]
         status2 = self.status_svc.get_latest_status(job.job_id)
         assert status2 is not None
-        if with_result:
-            assert status2.result == result
-        else:
-            assert status2.result == NO_RESULT
         assert status1 == status2

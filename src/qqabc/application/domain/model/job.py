@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 from enum import Enum
-from typing import Any, Generic, Literal, NewType, TypeVar
+from typing import Any, Generic, NewType, TypeVar
 
 from typing_extensions import Self
 
@@ -60,27 +60,23 @@ class SupportSerialization:
 Result = NewType("Result", object)
 
 
-class SerializedJobStatus(SupportEq, SupportRepr, SupportSerialization):
-    def __init__(  # noqa: PLR0913
+class JobResult(SupportEq, SupportRepr):
+    def __init__(
         self,
         *,
         status_id: str,
         job_id: str,
         issue_time: dt.datetime,
-        status: StatusEnum,
-        detail: str,
-        result_serialized: SerializedResult | None,
+        serialized_result: SerializedResult,
     ) -> None:
         self.status_id = status_id
         self.job_id = job_id
         self.issue_time = issue_time
-        self.status = status
-        self.detail = detail
-        self.result_serialized = result_serialized
+        self.serialized_result = serialized_result
 
 
 class JobStatus(SupportEq, SupportRepr):
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         status_id: str,
@@ -88,14 +84,12 @@ class JobStatus(SupportEq, SupportRepr):
         issue_time: dt.datetime,
         status: StatusEnum,
         detail: str,
-        result: Result | Literal[QQABC.NO_RESULT],
     ) -> None:
         self.status_id = status_id
         self.job_id = job_id
         self.issue_time = issue_time
         self.status = status
         self.detail = detail
-        self.result = result
 
 
 class SerializedJob(SupportEq, SupportRepr, SupportSerialization):

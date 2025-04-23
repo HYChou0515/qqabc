@@ -7,7 +7,7 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar, TypedDict
 
-from qqabc.application.domain.model.job import SerializedJob, SerializedJobStatus
+from qqabc.application.domain.model.job import JobStatus, SerializedJob
 from qqabc.common.serializer import serializer
 
 if TYPE_CHECKING:
@@ -45,15 +45,15 @@ class JobRepoAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_status(self, s_status: SerializedJobStatus) -> None:
+    def add_status(self, s_status: JobStatus) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+    def get_latest_status(self, job_id: str) -> JobStatus | None:
         raise NotImplementedError
 
     @abstractmethod
-    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
+    def iter_status(self, job_id: str) -> Generator[JobStatus]:
         raise NotImplementedError
 
     @abstractmethod
@@ -78,7 +78,7 @@ class JobRepoAdapter(ABC):
 class InMemoryJobRepo(JobRepoAdapter):
     _queue: ClassVar[dict[str, SerializedJob]] = {}  # Singleton
     _hist: ClassVar[dict[str, SerializedJob]] = {}  # Singleton
-    _status_hist: ClassVar[dict[str, list[SerializedJobStatus]]] = {}  # Singleton
+    _status_hist: ClassVar[dict[str, list[JobStatus]]] = {}  # Singleton
 
     def job_exists(self, job_id: str) -> bool:
         return job_id in self._queue
@@ -94,15 +94,15 @@ class InMemoryJobRepo(JobRepoAdapter):
     def list_jobs(self) -> list[SerializedJob]:
         return list(it.chain(self._queue.values(), self._hist.values()))
 
-    def add_status(self, s_status: SerializedJobStatus) -> None:
+    def add_status(self, s_status: JobStatus) -> None:
         if s_status.job_id not in self._status_hist:
             self._status_hist[s_status.job_id] = []
         self._status_hist[s_status.job_id].append(s_status)
 
-    def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+    def get_latest_status(self, job_id: str) -> JobStatus | None:
         return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
 
-    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
+    def iter_status(self, job_id: str) -> Generator[JobStatus]:
         if job_id not in self._status_hist:
             return
         yield from self._status_hist[job_id]
@@ -138,7 +138,7 @@ class InMemoryJobRepo(JobRepoAdapter):
             self._hist[job["job_id"]] = SerializedJob.from_serializable(job)
         for job_id, status_list in dumps["status_history"].items():
             self._status_hist[job_id] = [
-                SerializedJobStatus.from_serializable(status) for status in status_list
+                JobStatus.from_serializable(status) for status in status_list
             ]
 
     def teardown(self) -> None:
@@ -204,16 +204,16 @@ class FileJobRepo(JobRepoAdapter):
             if (job := self._get_job_from_queue(job_id)) is not None
         ]
 
-    def add_status(self, s_status: SerializedJobStatus) -> None:
+    def add_status(self, s_status: JobStatus) -> None:
         sdir = self._status_path(s_status.job_id)
         os.makedirs(sdir, exist_ok=True)
         with open(os.path.join(sdir, s_status.status_id), "wb") as f:
             f.write(serializer.packb(s_status.get_serializable()))
 
-    def get_latest_status(self, job_id: str) -> SerializedJobStatus | None:
+    def get_latest_status(self, job_id: str) -> JobStatus | None:
         return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
 
-    def iter_status(self, job_id: str) -> Generator[SerializedJobStatus]:
+    def iter_status(self, job_id: str) -> Generator[JobStatus]:
         for status_id in self._list_status_ids_of_job(job_id):
             yield self._get_status_from_job_and_status_id(job_id, status_id)
 
@@ -247,7 +247,7 @@ class FileJobRepo(JobRepoAdapter):
             self._move_job_to_history(job["job_id"])
         for status_list in dumps["status_history"].values():
             for status in status_list:
-                self.add_status(SerializedJobStatus.from_serializable(status))
+                self.add_status(JobStatus.from_serializable(status))
 
     def teardown(self) -> None:
         shutil.rmtree(self._db_root)
@@ -317,11 +317,11 @@ class FileJobRepo(JobRepoAdapter):
 
     def _get_status_from_job_and_status_id(
         self, job_id: str, status_id: str
-    ) -> SerializedJobStatus:
+    ) -> JobStatus:
         sdir = self._status_path(job_id)
         fpath = os.path.join(sdir, status_id)
         with open(fpath, "rb") as f:
-            return SerializedJobStatus.from_serializable(serializer.unpackb(f.read()))
+            return JobStatus.from_serializable(serializer.unpackb(f.read()))
 
     def _move_job_to_history(self, job_id: str) -> None:
         os.rename(self._job_path(job_id), self._history_path(job_id))

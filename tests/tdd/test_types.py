@@ -18,7 +18,6 @@ from qqabc.application.domain.model.job import (
 from qqabc.application.domain.service.job_serializer_registry import JobSerializer
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
-    NewSerializedJobStatusRequest,
 )
 from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
@@ -213,14 +212,12 @@ class TestEntityInstantiation:
             issue_time=(issue_time := fx_faker.date_time()),
             status=(status := fx_faker.random_element(StatusEnum)),
             detail=(detail := fx_faker.sentence()),
-            result=(result := Result(fx_faker.pyint())),
         )
         assert job_status.status_id == status_id
         assert job_status.job_id == job_id
         assert job_status.issue_time == issue_time
         assert job_status.status == status
         assert job_status.detail == detail
-        assert job_status.result == result
 
     def test_job_status_eq(self, fx_faker: Faker) -> None:
         status1, status2 = fx_faker.random_elements(list(StatusEnum), 2, unique=True)
@@ -249,13 +246,12 @@ class TestEntityInstantiation:
             issue_time=dt.datetime(1999, 1, 1, tzinfo=dt.timezone.utc),
             status=StatusEnum.INITIAL,
             detail="detail",
-            result=Result("result"),
         )
         assert repr(job_status) == (
             "JobStatus(status_id='status_id', job_id='job_id', "
             "issue_time=1999-01-01T00:00:00+00:00, "
             "status='INITIAL', "
-            "detail='detail', result='result')"
+            "detail='detail')"
         )
 
         class SubJobStatus(JobStatus):
@@ -267,13 +263,12 @@ class TestEntityInstantiation:
             issue_time=dt.datetime(1999, 1, 1, tzinfo=dt.timezone.utc),
             status=StatusEnum.INITIAL,
             detail="detail",
-            result=Result("result"),
         )
         assert repr(sub_job_status) == (
             "SubJobStatus(status_id='status_id', "
             "job_id='job_id', "
             "issue_time=1999-01-01T00:00:00+00:00, "
-            "status='INITIAL', detail='detail', result='result')"
+            "status='INITIAL', detail='detail')"
         )
 
     @pytest.mark.parametrize("set_default", [None, "nice"])
@@ -317,7 +312,6 @@ class TestEntityInstantiation:
             "status": fx_faker.random_element(StatusEnum),
             "issue_time": fx_faker.date_time(),
             "detail": fx_faker.sentence(),
-            "result": fx_faker.pyint(),
         }
         if set_default == "issue_time":
             del kwargs["issue_time"]
@@ -326,7 +320,6 @@ class TestEntityInstantiation:
         assert new_job_status_request.job_id == kwargs["job_id"]
         assert new_job_status_request.status == kwargs["status"]
         assert new_job_status_request.detail == kwargs["detail"]
-        assert new_job_status_request.result == kwargs["result"]
         assert new_job_status_request.issue_time == kwargs.get("issue_time")
 
     @pytest.mark.parametrize("set_default", [None, "issue_time"])
@@ -338,16 +331,14 @@ class TestEntityInstantiation:
             "status": fx_faker.random_element(StatusEnum),
             "issue_time": fx_faker.date_time(),
             "detail": fx_faker.sentence(),
-            "result_serialized": fx_faker.job_result_serialized(),
         }
         if set_default == "issue_time":
             del kwargs["issue_time"]
 
-        new_job_status_request = NewSerializedJobStatusRequest(**kwargs)  # type: ignore[arg-type]
+        new_job_status_request = NewJobStatusRequest(**kwargs)  # type: ignore[arg-type]
         assert new_job_status_request.job_id == kwargs["job_id"]
         assert new_job_status_request.status == kwargs["status"]
         assert new_job_status_request.detail == kwargs["detail"]
-        assert new_job_status_request.result_serialized == kwargs["result_serialized"]
         assert new_job_status_request.issue_time == kwargs.get("issue_time")
 
 

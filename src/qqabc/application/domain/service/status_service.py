@@ -11,7 +11,6 @@ from qqabc.application.domain.model.job import (
     Job,
     JobStatus,
     SerializedJob,
-    SerializedJobStatus,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
@@ -26,26 +25,21 @@ if TYPE_CHECKING:
         JobSerializer,
         JobSerializerRegistry,
     )
-    from qqabc.application.port.in_.post_job_status_use_case import (
-        NewSerializedJobStatusRequest,
-    )
 
 
 class IStatusService(ABC):
     @abstractmethod
-    def add_job_status(
-        self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
-    ) -> JobStatus | SerializedJobStatus:
+    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         pass
 
     @abstractmethod
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True
-    ) -> JobStatus | SerializedJobStatus | None:
+    ) -> JobStatus | None:
         pass
 
     @abstractmethod
-    def list_job_status(self, job_id: str) -> list[SerializedJobStatus]:
+    def list_job_status(self, job_id: str) -> list[JobStatus]:
         pass
 
 
@@ -64,7 +58,7 @@ class StatusService(IStatusService):
         return self.job_serializer_registry.get_job_serializer(job_type)
 
     def _deserialize_status(
-        self, s_status: SerializedJobStatus, *, job: Job | SerializedJob | None = None
+        self, s_status: JobStatus, *, job: Job | SerializedJob | None = None
     ) -> JobStatus:
         result: Any | Literal[QQABC.NO_RESULT]
         if s_status.result_serialized is None:
@@ -84,14 +78,14 @@ class StatusService(IStatusService):
 
     def _serialize_status(
         self, status: JobStatus, *, job: Job | None = None
-    ) -> SerializedJobStatus:
+    ) -> JobStatus:
         if status.result is NO_RESULT:
             serialized_result = None
         else:
             job_type = self.job_svc.get_job_type(status.job_id, job)
             serializer = self._get_serializer(job_type)
             serialized_result = serializer.serialize_result(status.result)
-        return SerializedJobStatus(
+        return JobStatus(
             status_id=status.status_id,
             job_id=status.job_id,
             issue_time=status.issue_time,
@@ -100,12 +94,10 @@ class StatusService(IStatusService):
             result_serialized=serialized_result,
         )
 
-    def _add_serialized_job_status(
-        self, request: NewSerializedJobStatusRequest
-    ) -> SerializedJobStatus:
+    def _add_serialized_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         self.job_svc.check_job_exists(request.job_id)
         issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
-        s_status = SerializedJobStatus(
+        s_status = JobStatus(
             status_id=uuid.uuid4().hex,
             job_id=request.job_id,
             issue_time=issue_time,
@@ -124,22 +116,19 @@ class StatusService(IStatusService):
             issue_time=issue_time,
             status=request.status,
             detail=request.detail,
-            result=request.result,
         )
         s_status = self._serialize_status(status)
         self.job_dao.add_status(s_status)
         return status
 
-    def add_job_status(
-        self, request: NewJobStatusRequest | NewSerializedJobStatusRequest
-    ) -> JobStatus | SerializedJobStatus:
+    def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         if isinstance(request, NewJobStatusRequest):
             return self._add_job_status(request)
         return self._add_serialized_job_status(request)
 
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True
-    ) -> JobStatus | SerializedJobStatus | None:
+    ) -> JobStatus | None:
         job = self.job_svc.get_job(job_id, deserialize=False)
         s_status = self.job_dao.get_latest_status(job_id)
         if s_status is None:
@@ -148,6 +137,6 @@ class StatusService(IStatusService):
             return self._deserialize_status(s_status, job=job)
         return s_status
 
-    def list_job_status(self, job_id: str) -> list[SerializedJobStatus]:
+    def list_job_status(self, job_id: str) -> list[JobStatus]:
         s_status_list = list(self.job_dao.iter_status(job_id))
         return s_status_list

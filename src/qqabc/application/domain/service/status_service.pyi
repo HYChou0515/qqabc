@@ -21,9 +21,6 @@ from qqabc.application.domain.model.job import (
 from qqabc.application.domain.model.job import (
     SerializedJob as SerializedJob,
 )
-from qqabc.application.domain.model.job import (
-    SerializedJobStatus as SerializedJobStatus,
-)
 from qqabc.application.domain.service.job_queue_service import (
     IJobQueueService as IJobQueueService,
 )
@@ -36,17 +33,9 @@ from qqabc.application.domain.service.job_serializer_registry import (
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest as NewJobStatusRequest,
 )
-from qqabc.application.port.in_.post_job_status_use_case import (
-    NewSerializedJobStatusRequest as NewSerializedJobStatusRequest,
-)
 
 class IStatusService(ABC):
-    @overload
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus: ...
-    @overload
-    def add_job_status(
-        self, request: NewSerializedJobStatusRequest
-    ) -> SerializedJobStatus: ...
     @overload
     def get_latest_status(self, job_id: str) -> JobStatus | None: ...
     @overload
@@ -56,9 +45,9 @@ class IStatusService(ABC):
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[False]
-    ) -> SerializedJobStatus | None: ...
+    ) -> JobStatus | None: ...
     @abstractmethod
-    def list_job_status(self, job_id: str) -> list[SerializedJobStatus]: ...
+    def list_job_status(self, job_id: str) -> list[JobStatus]: ...
 
 class StatusService(IStatusService):
     job_svc: IJobQueueService
@@ -70,12 +59,7 @@ class StatusService(IStatusService):
         job_dao: JobRepoAdapter,
         job_serializer_registry: JobSerializerRegistry,
     ) -> None: ...
-    @overload
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus: ...
-    @overload
-    def add_job_status(
-        self, request: NewSerializedJobStatusRequest
-    ) -> SerializedJobStatus: ...
     @overload
     def get_latest_status(self, job_id: str) -> JobStatus | None: ...
     @overload
@@ -85,5 +69,5 @@ class StatusService(IStatusService):
     @overload
     def get_latest_status(
         self, job_id: str, *, deserialize: Literal[False]
-    ) -> SerializedJobStatus | None: ...
-    def list_job_status(self, job_id: str) -> list[SerializedJobStatus]: ...
+    ) -> JobStatus | None: ...
+    def list_job_status(self, job_id: str) -> list[JobStatus]: ...
