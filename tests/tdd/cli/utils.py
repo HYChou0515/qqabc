@@ -143,14 +143,14 @@ class UpdateStatusMixin(BaseCliTest):
         with_result: bool = False,
         detail: str | None = None,
     ) -> str | None:
-        command = ["update", job_id, "-s", status]
+        command = ["update", "status", status, "--job-id", job_id]
         if with_result:
             s_result = self.fx_faker.json()
             command.append("--stdin")
         else:
             s_result = None
         if detail is not None:
-            command.extend(["-d", detail])
+            command.extend(["--detail", detail])
         result = self.runner.invoke(
             self.app,
             command,
@@ -158,3 +158,11 @@ class UpdateStatusMixin(BaseCliTest):
         )
         assert_result_success(result)
         return s_result
+
+    def _update_status(
+        self, job_id: str, status: str, detail: str | None = None
+    ) -> ClickResult:
+        command = ["update", "status", status, "--job-id", job_id]
+        if detail is not None:
+            command.extend(["--detail", detail])
+        return self.runner.invoke(self.app, command)

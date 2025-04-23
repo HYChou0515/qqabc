@@ -17,7 +17,7 @@ from qqabc_cli.di.out import di_status_service
 
 console = Console()
 
-app = typer.Typer()
+app = typer.Typer(name="update")
 
 
 class Status(str, Enum):
@@ -36,12 +36,12 @@ def _map_status(status: Status) -> StatusEnum:
     raise NotImplementedError
 
 
-@app.command()
+@app.command(name="status")
 def update(
     *,
-    job_id: str,
-    status: Annotated[Status, typer.Option("-s")],
-    detail: Annotated[Optional[str], typer.Option("-d")] = None,
+    status: Annotated[Status, typer.Argument()],
+    job_id: Annotated[str, typer.Option("--job-id")],
+    detail: Annotated[Optional[str], typer.Option("--detail")] = None,
     is_read_stdin: Annotated[bool, typer.Option("--stdin")] = False,
 ) -> None:
     svc = di_status_service()

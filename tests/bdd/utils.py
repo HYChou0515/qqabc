@@ -33,9 +33,9 @@ def create_a_job_online(job_file_path: str, *, stdin=True):
     return r
 
 def update_status(job_id: str, status: str, detail: str = None):
-    command = ["update", job_id, "-s", status]
+    command = ["update", "status", status, "--job-id", job_id]
     if detail is not None:
-        command.extend(["-d", detail])
+        command.extend(["--detail", detail])
     r = qqabc_cli(command)
     return r
 

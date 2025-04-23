@@ -14,9 +14,7 @@ from tests.utils import assert_result_success, assert_status, get_stderr, get_st
 
 class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_post_result_to_absent_job(self) -> None:
-        result = self.runner.invoke(
-            self.app, ["update", job_id := self.fx_faker.job_id(), "-s", "success"]
-        )
+        result = self._update_status(job_id := self.fx_faker.job_id(), "success")
         assert result.exit_code == BAD_ARG_EXIT_CODE
         stderr = get_stderr(result)
         assert "Error" in stderr
