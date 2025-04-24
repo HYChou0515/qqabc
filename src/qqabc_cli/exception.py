@@ -17,11 +17,11 @@ class JobIdNotFoundError(NotFoundError):
 
 class ResultNotFoundError(NotFoundError):
     def __init__(self, job_id: str) -> None:
-        error_console.print(f"Error: job {job_id} has not result.")
+        error_console.print(f"Error: job {job_id} has no result.")
         super().__init__()
 
 
 class StatusNotFoundError(NotFoundError):
     def __init__(self, job_id: str) -> None:
-        error_console.print(f"Error: job {job_id} has not status posted.")
+        error_console.print(f"Error: job {job_id} has no status.")
         super().__init__()

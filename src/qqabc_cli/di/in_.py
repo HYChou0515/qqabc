@@ -8,7 +8,14 @@ from qqabc.application.domain.service.job_queue_service import (
 from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializerRegistry,
 )
-from qqabc.application.domain.service.status_service import StatusService
+from qqabc.application.domain.service.result_service import (
+    IResultService,
+    ResultService,
+)
+from qqabc.application.domain.service.status_service import (
+    IStatusService,
+    StatusService,
+)
 
 
 class Container(containers.DeclarativeContainer):
@@ -35,9 +42,15 @@ class Container(containers.DeclarativeContainer):
         job_serializer_registry=job_serializer_registry,
     )
 
-    status_service = providers.Factory(
+    status_service: providers.Factory[IStatusService] = providers.Factory(
         StatusService,
         job_svc=job_queue_service,
         job_dao=job_dao,
         job_serializer_registry=job_serializer_registry,
+    )
+
+    result_service: providers.Factory[IResultService] = providers.Factory(
+        ResultService,
+        job_svc=job_queue_service,
+        job_dao=job_dao,
     )

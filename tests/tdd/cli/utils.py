@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import tempfile
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 from unittest.mock import patch
 
 import click
@@ -126,14 +127,16 @@ class UpdateStatusMixin(BaseCliTest):
         table_headers = ["Status", "Time", "Detail"]
         assert all(header in result.stdout for header in table_headers)
 
-    def _assert_posted_result(self, job_id: str, s_result: str | None) -> None:
-        result = self.runner.invoke(self.app, ["get", "result", job_id])
-        if s_result:
+    def _assert_posted_result(self, job_id: str, result_bytes: bytes | None) -> None:
+        result = self.runner.invoke(
+            self.app, ["download", "result", "--job-id", job_id, "--to-stdout"]
+        )
+        if result_bytes is not None:
             assert_result_success(result)
-            assert s_result.encode() == result.stdout_bytes
+            assert result_bytes == result.stdout_bytes
         else:
-            assert result.exit_code == NOT_FOUND_CODE
-            assert result.stdout == ""
+            assert result.exit_code == NOT_FOUND_CODE, result.stderr
+            assert "has no result" in result.stderr
 
     def _post_status(
         self,
@@ -158,6 +161,22 @@ class UpdateStatusMixin(BaseCliTest):
         )
         assert_result_success(result)
         return s_result
+
+    def _upload_result(
+        self, job_id: str, result: bytes, from_: Literal["stdout", "file"]
+    ) -> ClickResult:
+        command = ["upload", "result", "--job-id", job_id]
+        if from_ == "stdout":
+            command.append("--from-stdout")
+            return self.runner.invoke(self.app, command, input=result.decode())
+        if from_ == "file":
+            with tempfile.NamedTemporaryFile(mode="w+b") as f:
+                f.write(result)
+                f.flush()
+                job_file = f.name
+                command.extend(["--from-file", job_file])
+                return self.runner.invoke(self.app, command)
+        raise ValueError(f"Unknown source: {from_}")
 
     def _update_status(
         self, job_id: str, status: str, detail: str | None = None

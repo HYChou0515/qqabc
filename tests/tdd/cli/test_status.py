@@ -33,7 +33,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_get_updated_status(self, status: str) -> None:
         aj, _ = self._add_job()
         for _ in range(3):
-            self._post_status(aj.job_id, status)
+            self._update_status(aj.job_id, status)
             self._assert_posted_status(aj.job_id, status)
             status = self.fx_faker.job_status_enum()
 
@@ -41,7 +41,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_update_status_with_detail(self, status: str) -> None:
         aj, _ = self._add_job()
         detail = " ".join(self.fx_faker.words())
-        self._post_status(aj.job_id, status, detail=detail)
+        self._update_status(aj.job_id, status, detail=detail)
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id])
         assert_result_success(result)
         assert detail in get_stdout(result)
@@ -52,7 +52,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
         aj, _ = self._add_job()
         statuses = []
         for _ in range(3):
-            self._post_status(aj.job_id, status)
+            self._update_status(aj.job_id, status)
             statuses.append(status)
             status = self.fx_faker.job_status_enum()
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id, all_options])

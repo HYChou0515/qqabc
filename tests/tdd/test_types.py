@@ -227,7 +227,6 @@ class TestEntityInstantiation:
             "issue_time": fx_faker.date_time(),
             "status": status1,
             "detail": fx_faker.sentence(),
-            "result": fx_faker.pyint(),
         }
         kwargs2 = {
             "status_id": fx_faker.uuid4(),
@@ -235,7 +234,6 @@ class TestEntityInstantiation:
             "issue_time": fx_faker.date_time(),
             "status": status2,
             "detail": fx_faker.sentence(),
-            "result": fx_faker.pyint(),
         }
         assert_eq_ne(JobStatus, kwargs1, kwargs2)
 

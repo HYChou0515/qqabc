@@ -11,7 +11,6 @@ from qqabc.application.domain.model.job import (
 from qqabc.common.exceptions import JobNotFoundError
 from qqabc_cli.di.out import di_job_queue_service, di_status_service
 from qqabc_cli.exception import (
-    JobIdNotFoundError,
     StatusNotFoundError,
 )
 
@@ -63,7 +62,7 @@ def get_job() -> None:
 def get_result(job_id: str) -> None:
     s_status = _get_status(job_id)
     if s_status is None:
-        raise JobIdNotFoundError(job_id)
+        raise StatusNotFoundError(job_id)
 
 
 @app.command(name="status")

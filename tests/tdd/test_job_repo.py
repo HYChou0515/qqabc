@@ -38,9 +38,7 @@ class TestJobRepoAdapter:
         for i in range(3):
             job = jobs[i]
             for _ in range(3):
-                self.job_repo.add_status(
-                    self.faker.serialized_status(job_id=job.job_id)
-                )
+                self.job_repo.add_status(self.faker.job_status(job_id=job.job_id))
         return jobs
 
     def test_dump(self) -> None:

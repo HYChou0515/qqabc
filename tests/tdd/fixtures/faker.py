@@ -7,10 +7,10 @@ from faker import Faker as _Faker
 
 from qqabc.application.domain.model.job import (
     JobBody,
+    JobStatus,
     Result,
     SerializedJob,
     SerializedJobBody,
-    SerializedResult,
     StatusEnum,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
@@ -39,9 +39,6 @@ class Faker(_Faker):
     def job_body_serialized(self) -> SerializedJobBody:
         return SerializedJobBody(self.json_bytes())
 
-    def job_result_serialized(self) -> SerializedResult:
-        return SerializedResult(self.json_bytes())
-
     def job_type(self) -> str:
         return self.name()
 
@@ -58,6 +55,16 @@ class Faker(_Faker):
             job_body_serialized=self.job_body_serialized(),
             created_time=self.date_time(tzinfo=dt.timezone.utc),
             nice=0,
+        )
+
+    def job_status(self, *, job_id: str | None = None) -> JobStatus:
+        job_id_ = self.job_id() if job_id is None else job_id
+        return JobStatus(
+            status_id=self.status_id(),
+            job_id=job_id_,
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
+            status=self.status_enum(),
+            detail=self.sentence(),
         )
 
     def new_job_request(
@@ -89,9 +96,6 @@ class Faker(_Faker):
             job_type=job_type_,
             job_body_serialized=job_body_serialized_,
         )
-
-    def job_result(self) -> Result:
-        return Result(self.json())
 
     def new_status_request(
         self,

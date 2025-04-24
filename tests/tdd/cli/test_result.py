@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import pytest
-
 from tests.tdd.cli.utils import (
-    ALL_STATUS,
     BAD_ARG_EXIT_CODE,
-    NOT_FOUND_CODE,
     AddJobMixin,
     UpdateStatusMixin,
 )
-from tests.utils import get_stderr
+from tests.utils import assert_result_success, get_stderr
 
 
 class TestCliPostResult(UpdateStatusMixin, AddJobMixin):
@@ -23,16 +19,13 @@ class TestCliPostResult(UpdateStatusMixin, AddJobMixin):
         assert job_id in stderr
         assert "does not exist" in stderr
 
-    @pytest.mark.parametrize("status", ALL_STATUS)
-    def test_get_posted_result(self, status: str) -> None:
+    def test_get_posted_result(self) -> None:
         aj, _ = self._add_job()
-        result = self.runner.invoke(self.app, ["get", "result", aj.job_id])
-        assert result.exit_code == NOT_FOUND_CODE
-        assert result.stdout == ""
+        self._assert_posted_result(aj.job_id, None)
 
-        for i in range(3):
-            s_result = self._post_status(aj.job_id, status, with_result=i % 2 == 0)
-            self._assert_posted_result(aj.job_id, s_result)
-            self._assert_posted_status(aj.job_id, status)
-
-            status = self.fx_faker.job_status_enum()
+        for _ in range(3):
+            r = self._upload_result(
+                aj.job_id, result := self.fx_faker.json_bytes(), from_="file"
+            )
+            assert_result_success(r)
+            self._assert_posted_result(aj.job_id, result)

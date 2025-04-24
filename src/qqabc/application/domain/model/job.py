@@ -60,22 +60,22 @@ class SupportSerialization:
 Result = NewType("Result", object)
 
 
-class JobResult(SupportEq, SupportRepr):
+class JobResult(SupportEq, SupportRepr, SupportSerialization):
     def __init__(
         self,
         *,
-        status_id: str,
+        result_id: str,
         job_id: str,
         issue_time: dt.datetime,
         serialized_result: SerializedResult,
     ) -> None:
-        self.status_id = status_id
+        self.result_id = result_id
         self.job_id = job_id
         self.issue_time = issue_time
         self.serialized_result = serialized_result
 
 
-class JobStatus(SupportEq, SupportRepr):
+class JobStatus(SupportEq, SupportRepr, SupportSerialization):
     def __init__(
         self,
         *,
