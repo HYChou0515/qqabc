@@ -3,9 +3,8 @@ from __future__ import annotations
 import datetime as dt
 import itertools as it
 import os
-import shutil
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from qqabc.application.domain.model.job import JobResult, JobStatus, SerializedJob
 from qqabc.common.serializer import serializer
@@ -88,10 +87,11 @@ class JobRepoAdapter(ABC):
 
 
 class InMemoryJobRepo(JobRepoAdapter):
-    _queue: ClassVar[dict[str, SerializedJob]] = {}  # Singleton
-    _hist: ClassVar[dict[str, SerializedJob]] = {}  # Singleton
-    _status_hist: ClassVar[dict[str, list[JobStatus]]] = {}  # Singleton
-    _result: ClassVar[dict[str, list[JobResult]]] = {}  # Singleton
+    def __init__(self) -> None:
+        self._queue: dict[str, SerializedJob] = {}
+        self._hist: dict[str, SerializedJob] = {}
+        self._status_hist: dict[str, list[JobStatus]] = {}
+        self._result: dict[str, list[JobResult]] = {}
 
     def job_exists(self, job_id: str) -> bool:
         return job_id in self._queue or job_id in self._hist
@@ -166,11 +166,6 @@ class InMemoryJobRepo(JobRepoAdapter):
             self._status_hist[job_id] = [
                 JobStatus.from_serializable(status) for status in status_list
             ]
-
-    def teardown(self) -> None:
-        self._queue.clear()
-        self._hist.clear()
-        self._status_hist.clear()
 
     def _get_job_from_queue(self, job_id: str) -> SerializedJob | None:
         if job_id not in self._queue:
@@ -296,13 +291,6 @@ class FileJobRepo(JobRepoAdapter):
         for status_list in dumps["status_history"].values():
             for status in status_list:
                 self.add_status(JobStatus.from_serializable(status))
-
-    def teardown(self) -> None:
-        shutil.rmtree(self._db_root)
-        os.makedirs(self._db_root, exist_ok=True)
-        os.makedirs(self._job_dir, exist_ok=True)
-        os.makedirs(self._hist_dir, exist_ok=True)
-        os.makedirs(self._status_dir, exist_ok=True)
 
     def _dump_queue(self) -> list[dict]:
         return [

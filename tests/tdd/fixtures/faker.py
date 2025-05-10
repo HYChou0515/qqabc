@@ -8,7 +8,6 @@ from faker import Faker as _Faker
 from qqabc.application.domain.model.job import (
     JobBody,
     JobStatus,
-    Result,
     SerializedJob,
     SerializedJobBody,
     StatusEnum,

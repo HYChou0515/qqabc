@@ -27,7 +27,7 @@ from qqabc.common.exceptions import (
 from tests.tdd.utils import MyJobSerializer
 
 if TYPE_CHECKING:
-    from qqabc.application.domain.service.job_queue_service import IJobQueueService
+    from qqabc_cli.di.in_ import Container
     from tests.tdd.fixtures.faker import Faker
 
 
@@ -137,12 +137,12 @@ class TestJobController:
     def setup_method(
         self,
         fx_faker: Faker,
-        fx_job_queue_controller: IJobQueueService,
-        fx_job_serializer_registry: JobSerializerRegistry,
+        fx_test_container: Container,
     ) -> None:
         self.fx_faker = fx_faker
-        self.job_controller = fx_job_queue_controller
-        self.job_serializer_registry = fx_job_serializer_registry
+
+        self.job_controller = fx_test_container.job_queue_service()
+        self.job_serializer_registry = fx_test_container.job_serializer_registry()
         self._register_my_job_serializer()
         self._register_math_job_serializer()
 

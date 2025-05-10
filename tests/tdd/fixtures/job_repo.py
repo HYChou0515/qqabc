@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 def _in_mem_job_repo() -> Generator[JobRepoAdapter]:
     job_repo = InMemoryJobRepo()
     yield job_repo
-    job_repo.teardown()
 
 
 @contextmanager

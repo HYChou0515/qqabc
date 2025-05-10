@@ -38,7 +38,6 @@ def fx_app() -> Generator[typer.Typer]:
     with container.job_dao.override(job_dao):
         app = create_app()
         yield app
-        job_dao.teardown()
 
 
 @pytest.fixture
