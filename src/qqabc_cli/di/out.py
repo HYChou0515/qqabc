@@ -38,7 +38,7 @@ __container: Container = __build_container()
 
 
 def get_container(*, reset: bool = False) -> Container:
-    if reset:
+    if reset:  # pragma: no cover
         __container.reset_singletons()
         __container.config.reset_override()
         __container.job_dao.reset_override()

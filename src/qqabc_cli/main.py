@@ -2,13 +2,6 @@ import typer
 
 import qqabc_cli.di.out
 from qqabc_cli.commands import consume, download, get, submit, update, upload
-from qqabc_cli.di.in_ import Container
-
-
-def build_container() -> Container:
-    container = Container()
-    container.wire(modules=[qqabc_cli.di.out.__name__])
-    return container
 
 
 def create_app() -> typer.Typer:
@@ -23,6 +16,6 @@ def create_app() -> typer.Typer:
 
 
 def main() -> None:  # pragma: no cover
-    build_container()
+    qqabc_cli.di.out.get_container()
     app = create_app()
     app()

@@ -9,7 +9,8 @@ import pytest
 from typer.testing import CliRunner
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo
-from qqabc_cli.main import build_container, create_app
+from qqabc_cli.di.out import get_container
+from qqabc_cli.main import create_app
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -33,7 +34,7 @@ def fx_workdir() -> Generator[str, None, None]:
 
 @pytest.fixture
 def fx_app() -> Generator[typer.Typer]:
-    container = build_container()
+    container = get_container()
     job_dao = InMemoryJobRepo()
     with container.job_dao.override(job_dao):
         app = create_app()
