@@ -4,13 +4,10 @@ import datetime as dt
 import itertools as it
 import os
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, TypedDict
+from typing import TypedDict
 
 from qqabc.application.domain.model.job import JobResult, JobStatus, SerializedJob
 from qqabc.common.serializer import serializer
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
 
 
 class JobRepoAdapterDumps(TypedDict):
@@ -44,30 +41,6 @@ class IJobRepo(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_status(self, s_status: JobStatus) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def iter_status(self, job_id: str) -> Generator[JobStatus]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def add_result(self, result: JobResult) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_latest_result(self, job_id: str) -> JobResult | None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def iter_result(self, job_id: str) -> Generator[JobResult]:
-        raise NotImplementedError
-
-    @abstractmethod
     def pop_largest_priority_job(self, job_type: str | None) -> SerializedJob | None:
         raise NotImplementedError
 
@@ -96,19 +69,6 @@ class MemoryJobRepo(IJobRepo):
     def job_exists(self, job_id: str) -> bool:
         return job_id in self._queue or job_id in self._hist
 
-    def add_result(self, result: JobResult) -> None:
-        if result.job_id not in self._result:
-            self._result[result.job_id] = []
-        self._result[result.job_id].append(result)
-
-    def get_latest_result(self, job_id: str) -> JobResult | None:
-        return max(self.iter_result(job_id), key=lambda r: r.issue_time, default=None)  # type: ignore[union-attr]
-
-    def iter_result(self, job_id: str) -> Generator[JobResult]:
-        if job_id not in self._result:
-            return
-        yield from self._result[job_id]
-
     def add_job(self, s_job: SerializedJob) -> None:
         self._queue[s_job.job_id] = s_job
 
@@ -119,19 +79,6 @@ class MemoryJobRepo(IJobRepo):
 
     def list_jobs(self) -> list[SerializedJob]:
         return list(it.chain(self._queue.values(), self._hist.values()))
-
-    def add_status(self, s_status: JobStatus) -> None:
-        if s_status.job_id not in self._status_hist:
-            self._status_hist[s_status.job_id] = []
-        self._status_hist[s_status.job_id].append(s_status)
-
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
-
-    def iter_status(self, job_id: str) -> Generator[JobStatus]:
-        if job_id not in self._status_hist:
-            return
-        yield from self._status_hist[job_id]
 
     def pop_largest_priority_job(self, job_type: str | None) -> SerializedJob | None:
         jobs_with_type = [
@@ -229,37 +176,6 @@ class DiskJobRepo(IJobRepo):
             if (job := self._get_job_from_queue(job_id)) is not None
         ]
 
-    def add_status(self, s_status: JobStatus) -> None:
-        sdir = self._status_path(s_status.job_id)
-        os.makedirs(sdir, exist_ok=True)
-        with open(os.path.join(sdir, s_status.status_id), "wb") as f:
-            f.write(serializer.packb(s_status.get_serializable()))
-
-    def get_latest_status(self, job_id: str) -> JobStatus | None:
-        return max(self.iter_status(job_id), key=lambda s: s.issue_time, default=None)  # type: ignore[union-attr]
-
-    def iter_status(self, job_id: str) -> Generator[JobStatus]:
-        for status_id in self._list_status_ids_of_job(job_id):
-            yield self._get_status_from_job_and_status_id(job_id, status_id)
-
-    def add_result(self, result: JobResult) -> None:
-        sdir = self._result_dir
-        os.makedirs(sdir, exist_ok=True)
-        with open(os.path.join(sdir, result.job_id), "wb") as f:
-            f.write(serializer.packb(result.get_serializable()))
-
-    def get_latest_result(self, job_id: str) -> JobResult | None:
-        if not os.path.exists(self._result_dir):
-            return None
-        with open(os.path.join(self._result_dir, job_id), "rb") as f:
-            return JobResult.from_serializable(serializer.unpackb(f.read()))
-
-    def iter_result(self, job_id: str) -> Generator[JobResult]:
-        if not os.path.exists(self._result_dir):
-            return
-        with open(os.path.join(self._result_dir, job_id), "rb") as f:
-            yield JobResult.from_serializable(serializer.unpackb(f.read()))
-
     def pop_largest_priority_job(self, job_type: str | None) -> SerializedJob | None:
         candidate: list[SerializedJob] = [
             job
@@ -288,9 +204,6 @@ class DiskJobRepo(IJobRepo):
         for job in dumps["history"]:
             self.add_job(SerializedJob.from_serializable(job))
             self._move_job_to_history(job["job_id"])
-        for status_list in dumps["status_history"].values():
-            for status in status_list:
-                self.add_status(JobStatus.from_serializable(status))
 
     def _dump_queue(self) -> list[dict]:
         return [

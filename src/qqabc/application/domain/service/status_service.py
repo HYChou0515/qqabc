@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_repo_adapter import (
         IJobRepo,
     )
+    from qqabc.adapter.out.pseristence.job_status_dao import IJobStatusRepo
     from qqabc.application.domain.service.job_queue_service import IJobQueueService
     from qqabc.application.domain.service.job_serializer_registry import (
         JobSerializer,
@@ -44,9 +45,11 @@ class StatusService(IStatusService):
         self,
         job_svc: IJobQueueService,
         job_dao: IJobRepo,
+        job_status_dao: IJobStatusRepo,
         job_serializer_registry: JobSerializerRegistry,
     ) -> None:
         self.job_dao = job_dao
+        self.job_status_dao = job_status_dao
         self.job_serializer_registry = job_serializer_registry
         self.job_svc = job_svc
 
@@ -81,7 +84,7 @@ class StatusService(IStatusService):
             status=request.status,
             detail=request.detail,
         )
-        self.job_dao.add_status(s_status)
+        self.job_status_dao.add_status(s_status)
         return s_status
 
     def _add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
@@ -94,7 +97,7 @@ class StatusService(IStatusService):
             detail=request.detail,
         )
         s_status = self._serialize_status(status)
-        self.job_dao.add_status(s_status)
+        self.job_status_dao.add_status(s_status)
         return status
 
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
@@ -107,7 +110,7 @@ class StatusService(IStatusService):
         self, job_id: str, *, deserialize: bool = True
     ) -> JobStatus | None:
         self.job_svc.check_job_exists(job_id)
-        s_status = self.job_dao.get_latest_status(job_id)
+        s_status = self.job_status_dao.get_latest_status(job_id)
         if s_status is None:
             return None
         if deserialize:
@@ -115,5 +118,5 @@ class StatusService(IStatusService):
         return s_status
 
     def list_job_status(self, job_id: str) -> list[JobStatus]:
-        s_status_list = list(self.job_dao.iter_status(job_id))
+        s_status_list = list(self.job_status_dao.iter_status(job_id))
         return s_status_list

@@ -16,14 +16,12 @@ from qqabc.application.domain.model.job import (
 )
 from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializer,
-    JobSerializerRegistry,
 )
+from qqabc_cli.di.out import get_container
 
 if TYPE_CHECKING:
     from freezegun.api import FrozenDateTimeFactory
 
-    from qqabc.application.domain.service.job_queue_service import IJobQueueService
-    from qqabc.application.domain.service.status_service import IStatusService
     from tests.tdd.fixtures.faker import Faker
 
 
@@ -60,15 +58,14 @@ class TestUtils:
     def setup_method(
         self,
         fx_faker: Faker,
-        fx_job_queue_controller: IJobQueueService,
-        fx_job_serializer_registry: JobSerializerRegistry,
-        fx_status_svc: IStatusService,
     ) -> None:
+        container = get_container(reset=True)
         self.faker = fx_faker
         self.job_type = fx_faker.job_type()
-        self.status_svc = fx_status_svc
-        self.job_controller = fx_job_queue_controller
-        fx_job_serializer_registry.register_job_serializer(
+        self.status_svc = container.status_service()
+        self.job_controller = container.job_queue_service()
+        job_serializer_registry = container.job_serializer_registry()
+        job_serializer_registry.register_job_serializer(
             job_type=self.job_type,
             job_serializer=MyJobSerializer(),
         )

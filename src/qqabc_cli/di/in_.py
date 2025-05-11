@@ -4,6 +4,10 @@ from qqabc.adapter.out.pseristence.job_repo_adapter import (
     DiskJobRepo,
     MemoryJobRepo,
 )
+from qqabc.adapter.out.pseristence.job_status_dao import (
+    IJobStatusRepo,
+    MemoryJobStatusRepo,
+)
 from qqabc.application.domain.service.job_queue_service import (
     IJobQueueService,
     JobQueueService,
@@ -29,6 +33,9 @@ class Container(containers.DeclarativeContainer):
         memory=providers.Factory(MemoryJobRepo),
         disk=providers.Factory(DiskJobRepo, db_root=config.job_dao.root_dir),
     )
+    job_status_dao: providers.Singleton[IJobStatusRepo] = providers.Singleton(
+        MemoryJobStatusRepo,
+    )
     job_serializer_registry = providers.Singleton(
         JobSerializerRegistry,
     )
@@ -42,6 +49,7 @@ class Container(containers.DeclarativeContainer):
         StatusService,
         job_svc=job_queue_service,
         job_dao=job_dao,
+        job_status_dao=job_status_dao,
         job_serializer_registry=job_serializer_registry,
     )
 
@@ -49,4 +57,5 @@ class Container(containers.DeclarativeContainer):
         ResultService,
         job_svc=job_queue_service,
         job_dao=job_dao,
+        job_status_dao=job_status_dao,
     )
