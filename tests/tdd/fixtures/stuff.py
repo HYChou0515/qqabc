@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from typer.testing import CliRunner
 
-from qqabc.adapter.out.pseristence.job_repo_adapter import InMemoryJobRepo
+from qqabc.adapter.out.pseristence.job_repo_adapter import MemoryJobRepo
 from qqabc_cli.di.out import get_container
 from qqabc_cli.main import create_app
 
@@ -35,7 +35,7 @@ def fx_workdir() -> Generator[str, None, None]:
 @pytest.fixture
 def fx_app() -> Generator[typer.Typer]:
     container = get_container()
-    job_dao = InMemoryJobRepo()
+    job_dao = MemoryJobRepo()
     with container.job_dao.override(job_dao):
         app = create_app()
         yield app

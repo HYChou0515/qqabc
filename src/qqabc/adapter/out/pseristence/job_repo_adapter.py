@@ -26,7 +26,7 @@ def _get_filo_priority(job: SerializedJob) -> tuple[int, dt.timedelta]:
     )
 
 
-class JobRepoAdapter(ABC):
+class IJobRepo(ABC):
     @abstractmethod
     def job_exists(self, job_id: str) -> bool:
         raise NotImplementedError
@@ -86,7 +86,7 @@ class JobRepoAdapter(ABC):
         raise NotImplementedError
 
 
-class InMemoryJobRepo(JobRepoAdapter):
+class MemoryJobRepo(IJobRepo):
     def __init__(self) -> None:
         self._queue: dict[str, SerializedJob] = {}
         self._hist: dict[str, SerializedJob] = {}
@@ -195,7 +195,7 @@ class InMemoryJobRepo(JobRepoAdapter):
         }
 
 
-class FileJobRepo(JobRepoAdapter):
+class DiskJobRepo(IJobRepo):
     def __init__(self, db_root: str) -> None:
         self._db_root = db_root
         self._job_dir = os.path.join(self._db_root, "job")

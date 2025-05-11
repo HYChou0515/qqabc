@@ -4,7 +4,7 @@ from typing import Literal
 from typing_extensions import overload
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import (
-    JobRepoAdapter as JobRepoAdapter,
+    IJobRepo as IJobRepo,
 )
 from qqabc.application.domain.model.job import (
     Job as Job,
@@ -72,10 +72,10 @@ class IJobQueueService(ABC):
     def get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str: ...
 
 class JobQueueService(IJobQueueService):
-    job_dao: JobRepoAdapter
+    job_dao: IJobRepo
     job_serializer_registry: JobSerializerRegistry
     def __init__(
-        self, job_dao: JobRepoAdapter, job_serializer_registry: JobSerializerRegistry
+        self, job_dao: IJobRepo, job_serializer_registry: JobSerializerRegistry
     ) -> None: ...
     def check_job_exists(self, job_id: str) -> None: ...
     @overload

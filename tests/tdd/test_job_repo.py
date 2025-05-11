@@ -1,7 +1,7 @@
 import pytest
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import (
-    JobRepoAdapter,
+    IJobRepo,
 )
 from qqabc.application.domain.model.job import SerializedJob
 from tests.tdd.fixtures.faker import Faker
@@ -12,7 +12,7 @@ class TestJobRepoAdapter:
     def setup_method(
         self,
         fx_faker: Faker,
-        fx_job_repo_adapter: JobRepoAdapter,
+        fx_job_repo_adapter: IJobRepo,
     ) -> None:
         self.faker = fx_faker
         self.job_repo = fx_job_repo_adapter
@@ -44,7 +44,7 @@ class TestJobRepoAdapter:
         dumps2 = self.job_repo.dump()
         assert dumps == dumps2
 
-    def test_transfer(self, fx_job_repo_adapter2: JobRepoAdapter) -> None:
+    def test_transfer(self, fx_job_repo_adapter2: IJobRepo) -> None:
         self.prepare_data()
         dumps = self.job_repo.dump()
         fx_job_repo_adapter2.load(dumps)

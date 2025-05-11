@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from qqabc.application.domain.model.job import JobResult
 
 if TYPE_CHECKING:
-    from qqabc.adapter.out.pseristence.job_repo_adapter import JobRepoAdapter
+    from qqabc.adapter.out.pseristence.job_repo_adapter import IJobRepo
     from qqabc.application.domain.service.job_queue_service import IJobQueueService
     from qqabc.application.port.in_.upload_result_use_case import NewJobResultRequest
 
@@ -31,7 +31,7 @@ class ResultService(IResultService):
     def __init__(
         self,
         job_svc: IJobQueueService,
-        job_dao: JobRepoAdapter,
+        job_dao: IJobRepo,
     ) -> None:
         self.job_dao = job_dao
         self.job_svc = job_svc

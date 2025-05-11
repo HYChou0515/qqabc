@@ -14,7 +14,7 @@ from qqabc.application.port.in_.post_job_status_use_case import (
 
 if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_repo_adapter import (
-        JobRepoAdapter,
+        IJobRepo,
     )
     from qqabc.application.domain.service.job_queue_service import IJobQueueService
     from qqabc.application.domain.service.job_serializer_registry import (
@@ -43,7 +43,7 @@ class StatusService(IStatusService):
     def __init__(
         self,
         job_svc: IJobQueueService,
-        job_dao: JobRepoAdapter,
+        job_dao: IJobRepo,
         job_serializer_registry: JobSerializerRegistry,
     ) -> None:
         self.job_dao = job_dao
