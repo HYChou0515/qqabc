@@ -42,7 +42,6 @@ def get_container(*, reset: bool = False) -> Container:
         __container.reset_singletons()
         __container.config.reset_override()
         __container.job_dao.reset_override()
-        __container.job_status_dao.reset()
         __container.job_status_dao.reset_override()
         __container.job_serializer_registry.reset()
         __container.job_serializer_registry.reset_override()

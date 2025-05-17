@@ -20,6 +20,7 @@ class TestJobConsumer(TestUtils):
         self,
     ) -> None:
         self.container.job_dao.override(providers.Factory(MemoryJobRepo))
+        self.container.job_status_dao.override(providers.Factory(MemoryJobStatusRepo))
         self.svc = self.container.result_service()
 
     def test_add_result_of_absent_job(self) -> None:
