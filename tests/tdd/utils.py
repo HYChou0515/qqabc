@@ -59,12 +59,12 @@ class TestUtils:
         self,
         fx_faker: Faker,
     ) -> None:
-        container = get_container(reset=True)
+        self.container = get_container(reset=True)
         self.faker = fx_faker
         self.job_type = fx_faker.job_type()
-        self.status_svc = container.status_service()
-        self.job_controller = container.job_queue_service()
-        job_serializer_registry = container.job_serializer_registry()
+        self.status_svc = self.container.status_service()
+        self.job_controller = self.container.job_queue_service()
+        job_serializer_registry = self.container.job_serializer_registry()
         job_serializer_registry.register_job_serializer(
             job_type=self.job_type,
             job_serializer=MyJobSerializer(),

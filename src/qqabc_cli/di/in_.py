@@ -30,8 +30,8 @@ class Container(containers.DeclarativeContainer):
 
     job_dao: providers.Selector = providers.Selector(
         config.job_dao.type,
-        memory=providers.Factory(MemoryJobRepo),
-        disk=providers.Factory(DiskJobRepo, db_root=config.job_dao.root_dir),
+        memory=providers.Singleton(MemoryJobRepo),
+        disk=providers.Singleton(DiskJobRepo, db_root=config.job_dao.root_dir),
     )
     job_status_dao: providers.Singleton[IJobStatusRepo] = providers.Singleton(
         MemoryJobStatusRepo,

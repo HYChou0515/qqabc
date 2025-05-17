@@ -21,6 +21,7 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
+from qqabc.application.port.in_.upload_result_use_case import NewJobResultRequest
 from tests.tdd.cli.utils import ALL_STATUS
 
 
@@ -121,6 +122,15 @@ class Faker(_Faker):
             job_id=job_id_,
             status=status_,
             detail=detail_,
+        )
+
+    def new_job_result_request(
+        self, *, job_id: str | None = None
+    ) -> NewJobResultRequest:
+        return NewJobResultRequest(
+            job_id=job_id or self.job_id(),
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
+            result=SerializedResult(self.json_bytes()),
         )
 
 

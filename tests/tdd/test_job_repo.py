@@ -17,6 +17,20 @@ class TestJobRepoAdapter:
         self.faker = fx_faker
         self.job_repo = fx_job_repo_adapter
 
+    def test_job_add_get(self) -> None:
+        job = self.faker.serialized_job()
+        self.job_repo.add_job(job)
+        sjob = self.job_repo.get_job(job.job_id)
+        assert sjob == job
+        sjob2 = self.job_repo.get_job(job.job_id)
+        assert sjob2 == job
+        sjob3 = self.job_repo.pop_largest_priority_job(None)
+        assert sjob3 == job
+        sjob4 = self.job_repo.pop_largest_priority_job(None)
+        assert sjob4 is None
+        sjob5 = self.job_repo.get_job(job.job_id)
+        assert sjob5 == job
+
     def prepare_data(self) -> list[SerializedJob]:
         jobs: list[SerializedJob] = []
         for _ in range(10):
