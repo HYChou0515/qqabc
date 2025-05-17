@@ -52,10 +52,6 @@ class IJobQueueService(ABC):
     def check_job_exists(self, job_id: str) -> None:
         pass
 
-    @abstractmethod
-    def get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str:
-        pass
-
 
 class JobQueueService(IJobQueueService):
     def __init__(
@@ -157,8 +153,3 @@ class JobQueueService(IJobQueueService):
                 raise EmptyQueueError("No jobs in queue")
             raise EmptyQueueError(f"No job with job type: {job_type}")
         return sjob
-
-    def get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str:
-        if job is not None:
-            return job.job_type
-        return self.get_job(job_id, deserialize=False).job_type

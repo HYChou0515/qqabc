@@ -6,14 +6,13 @@ import os
 from abc import ABC, abstractmethod
 from typing import TypedDict
 
-from qqabc.application.domain.model.job import JobResult, JobStatus, SerializedJob
+from qqabc.application.domain.model.job import SerializedJob
 from qqabc.common.serializer import serializer
 
 
 class JobRepoAdapterDumps(TypedDict):
     queue: list[dict]
     history: list[dict]
-    status_history: dict[str, list[dict]]
 
 
 def _get_filo_priority(job: SerializedJob) -> tuple[int, dt.timedelta]:
@@ -63,8 +62,6 @@ class MemoryJobRepo(IJobRepo):
     def __init__(self) -> None:
         self._queue: dict[str, SerializedJob] = {}
         self._hist: dict[str, SerializedJob] = {}
-        self._status_hist: dict[str, list[JobStatus]] = {}
-        self._result: dict[str, list[JobResult]] = {}
 
     def job_exists(self, job_id: str) -> bool:
         return job_id in self._queue or job_id in self._hist
@@ -97,22 +94,16 @@ class MemoryJobRepo(IJobRepo):
         return JobRepoAdapterDumps(
             queue=self._dump_queue(),
             history=self._dump_history(),
-            status_history=self._dump_status(),
         )
 
     def load_dict(self, dumps: JobRepoAdapterDumps) -> None:
         self._queue.clear()
         self._hist.clear()
-        self._status_hist.clear()
 
         for job in dumps["queue"]:
             self._queue[job["job_id"]] = SerializedJob.from_serializable(job)
         for job in dumps["history"]:
             self._hist[job["job_id"]] = SerializedJob.from_serializable(job)
-        for job_id, status_list in dumps["status_history"].items():
-            self._status_hist[job_id] = [
-                JobStatus.from_serializable(status) for status in status_list
-            ]
 
     def _get_job_from_queue(self, job_id: str) -> SerializedJob | None:
         if job_id not in self._queue:
@@ -132,28 +123,15 @@ class MemoryJobRepo(IJobRepo):
     def _dump_history(self) -> list[dict]:
         return [self._hist[jid].get_serializable() for jid in sorted(self._hist.keys())]
 
-    def _dump_status(self) -> dict[str, list[dict]]:
-        return {
-            job_id: [
-                s.get_serializable()
-                for s in sorted(self._status_hist[job_id], key=lambda s: s.status_id)
-            ]
-            for job_id in sorted(self._status_hist.keys())
-        }
-
 
 class DiskJobRepo(IJobRepo):
     def __init__(self, db_root: str) -> None:
         self._db_root = db_root
         self._job_dir = os.path.join(self._db_root, "job")
         self._hist_dir = os.path.join(self._db_root, "history")
-        self._status_dir = os.path.join(self._db_root, "status")
-        self._result_dir = os.path.join(self._db_root, "result")
         os.makedirs(self._db_root, exist_ok=True)
         os.makedirs(self._job_dir, exist_ok=True)
         os.makedirs(self._hist_dir, exist_ok=True)
-        os.makedirs(self._status_dir, exist_ok=True)
-        os.makedirs(self._result_dir, exist_ok=True)
 
     def job_exists(self, job_id: str) -> bool:
         return os.path.exists(self._job_path(job_id)) or os.path.exists(
@@ -191,11 +169,9 @@ class DiskJobRepo(IJobRepo):
     def dump_dict(self) -> JobRepoAdapterDumps:
         queue = self._dump_queue()
         history = self._dump_history()
-        status_history = self._dump_status()
         return JobRepoAdapterDumps(
             queue=queue,
             history=history,
-            status_history=status_history,
         )
 
     def load_dict(self, dumps: JobRepoAdapterDumps) -> None:
@@ -219,23 +195,11 @@ class DiskJobRepo(IJobRepo):
             if (job := self._get_job_from_hist(job_id)) is not None
         ]
 
-    def _dump_status(self) -> dict[str, list[dict]]:
-        return {
-            job_id: [
-                self._get_status_from_job_and_status_id(job_id, sid).get_serializable()
-                for sid in sorted(self._list_status_ids_of_job(job_id))
-            ]
-            for job_id in sorted(self._list_status_job_ids())
-        }
-
     def _history_path(self, job_id: str) -> str:
         return os.path.join(self._hist_dir, job_id)
 
     def _job_path(self, job_id: str) -> str:
         return os.path.join(self._job_dir, job_id)
-
-    def _status_path(self, job_id: str) -> str:
-        return os.path.join(self._status_dir, job_id)
 
     def _get_job_from_path(self, fpath: str) -> SerializedJob | None:
         if not os.path.exists(fpath):
@@ -254,23 +218,6 @@ class DiskJobRepo(IJobRepo):
 
     def _list_historty_job_ids(self) -> list[str]:
         return os.listdir(self._hist_dir)
-
-    def _list_status_job_ids(self) -> list[str]:
-        return os.listdir(self._status_dir)
-
-    def _list_status_ids_of_job(self, job_id: str) -> list[str]:
-        p = self._status_path(job_id)
-        if not os.path.exists(p):
-            return []
-        return os.listdir(p)
-
-    def _get_status_from_job_and_status_id(
-        self, job_id: str, status_id: str
-    ) -> JobStatus:
-        sdir = self._status_path(job_id)
-        fpath = os.path.join(sdir, status_id)
-        with open(fpath, "rb") as f:
-            return JobStatus.from_serializable(serializer.unpackb(f.read()))
 
     def _move_job_to_history(self, job_id: str) -> None:
         os.rename(self._job_path(job_id), self._history_path(job_id))
