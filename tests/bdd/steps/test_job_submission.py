@@ -6,13 +6,23 @@ from tests.utils import assert_result_success, get_stdout
 def test_job_submission_送出一個job():
     pass
 
+@scenario('submit_job.feature', '用stdin送出一個job')
+def test_job_submission_送出一個job_with_stdin():
+    pass
+
 @given("我有一個job", target_fixture="job_file_path")
 def 我有一個job(fx_workdir: str):
     return create_a_job_file(fx_workdir)
 
 @when("我送出這個job", target_fixture="job_id")
 def 我送出這個job(job_file_path):
-    r = create_a_job_online(job_file_path)
+    r = create_a_job_online(job_file_path, stdin=False)
+    assert_result_success(r)
+    return get_job_id_by_submission_return(r)
+
+@when("我用stdin送出這個job", target_fixture="job_id")
+def 我用stdin送出這個job(job_file_path):
+    r = create_a_job_online(job_file_path, stdin=True)
     assert_result_success(r)
     return get_job_id_by_submission_return(r)
 

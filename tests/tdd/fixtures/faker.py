@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
 
 import pytest
 from faker import Faker as _Faker
 
 from qqabc.application.domain.model.job import (
-    QQABC,
     JobBody,
-    Result,
+    JobResult,
+    JobStatus,
     SerializedJob,
     SerializedJobBody,
-    SerializedJobStatus,
     SerializedResult,
     StatusEnum,
 )
@@ -23,6 +21,7 @@ from qqabc.application.port.in_.submit_job_use_case import (
     NewJobRequest,
     NewSerializedJobRequest,
 )
+from qqabc.application.port.in_.upload_result_use_case import NewJobResultRequest
 from tests.tdd.cli.utils import ALL_STATUS
 
 
@@ -42,9 +41,6 @@ class Faker(_Faker):
     def job_body_serialized(self) -> SerializedJobBody:
         return SerializedJobBody(self.json_bytes())
 
-    def job_result_serialized(self) -> SerializedResult:
-        return SerializedResult(self.json_bytes())
-
     def job_type(self) -> str:
         return self.name()
 
@@ -63,19 +59,23 @@ class Faker(_Faker):
             nice=0,
         )
 
-    def serialized_status(
-        self,
-        *,
-        job_id: str = ...,  # type: ignore[assignment]
-    ) -> SerializedJobStatus:
-        job_id_ = self.job_id() if job_id is ... else job_id
-        return SerializedJobStatus(
-            job_id=job_id_,
+    def job_status(self, *, job_id: str | None = None) -> JobStatus:
+        job_id_ = self.job_id() if job_id is None else job_id
+        return JobStatus(
             status_id=self.status_id(),
+            job_id=job_id_,
             issue_time=self.date_time(tzinfo=dt.timezone.utc),
             status=self.status_enum(),
             detail=self.sentence(),
-            result_serialized=self.job_result_serialized(),
+        )
+
+    def job_result(self, *, job_id: str | None = None) -> JobResult:
+        job_id_ = self.job_id() if job_id is None else job_id
+        return JobResult(
+            result_id=self.uuid4(),
+            job_id=job_id_,
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
+            serialized_result=SerializedResult(self.json_bytes()),
         )
 
     def new_job_request(
@@ -108,26 +108,29 @@ class Faker(_Faker):
             job_body_serialized=job_body_serialized_,
         )
 
-    def job_result(self) -> Result:
-        return Result(self.json())
-
     def new_status_request(
         self,
         *,
         job_id: str = ...,  # type: ignore[assignment]
         status: StatusEnum = ...,  # type: ignore[assignment]
         detail: str = ...,  # type: ignore[assignment]
-        result: Result | Literal[QQABC.NO_RESULT] = ...,  # type: ignore[assignment]
     ) -> NewJobStatusRequest:
         job_id_ = self.uuid4() if job_id is ... else job_id
         status_ = self.status_enum() if status is ... else status
         detail_ = self.sentence() if detail is ... else detail
-        result_ = self.job_result() if result is ... else result
         return NewJobStatusRequest(
             job_id=job_id_,
             status=status_,
             detail=detail_,
-            result=result_,
+        )
+
+    def new_job_result_request(
+        self, *, job_id: str | None = None
+    ) -> NewJobResultRequest:
+        return NewJobResultRequest(
+            job_id=job_id or self.job_id(),
+            issue_time=self.date_time(tzinfo=dt.timezone.utc),
+            result=SerializedResult(self.json_bytes()),
         )
 
 

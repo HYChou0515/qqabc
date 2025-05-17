@@ -16,7 +16,6 @@ from qqabc.application.domain.model.job import (
 )
 from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializer,
-    JobSerializerRegistry,
 )
 from qqabc.application.port.in_.submit_job_use_case import NewJobRequest
 from qqabc.common.exceptions import (
@@ -27,7 +26,7 @@ from qqabc.common.exceptions import (
 from tests.tdd.utils import MyJobSerializer
 
 if TYPE_CHECKING:
-    from qqabc.application.domain.service.job_queue_service import IJobQueueService
+    from qqabc_cli.di.in_ import Container
     from tests.tdd.fixtures.faker import Faker
 
 
@@ -84,44 +83,59 @@ class MathJobSerializer(JobSerializer):
 
 
 class TestJobSerializer:
-    def test_register_job_serializer(
-        self, fx_faker: Faker, fx_job_serializer_registry: JobSerializerRegistry
+    @pytest.fixture(autouse=True)
+    def setup_method(
+        self,
+        fx_faker: Faker,
+        fx_test_container: Container,
     ) -> None:
+        self.faker = fx_faker
+        self.job_serializer_registry = fx_test_container.job_serializer_registry()
+
+    def test_register_job_serializer(self) -> None:
         job_serializer = MyJobSerializer()
-        returned = fx_job_serializer_registry.register_job_serializer(
-            job_serializer, job_type=fx_faker.job_type()
+        returned = self.job_serializer_registry.register_job_serializer(
+            job_serializer, job_type=self.faker.job_type()
         )  # type: ignore[func-returns-value]
         assert returned is None
 
-    def test_get_job_serializer(
-        self, fx_faker: Faker, fx_job_serializer_registry: JobSerializerRegistry
-    ) -> None:
-        job_type = fx_faker.job_type()
+    def test_get_job_serializer(self) -> None:
+        job_type = self.faker.job_type()
         job_serializer = MyJobSerializer()
-        fx_job_serializer_registry.register_job_serializer(
+        self.job_serializer_registry.register_job_serializer(
             job_serializer, job_type=job_type
         )
-        returned = fx_job_serializer_registry.get_job_serializer(job_type=job_type)
+        returned = self.job_serializer_registry.get_job_serializer(job_type=job_type)
         assert returned is job_serializer
 
-    def test_get_unregistered_job_serializer_raises_key_error(
-        self, fx_faker: Faker, fx_job_serializer_registry: JobSerializerRegistry
-    ) -> None:
-        job_type = fx_faker.job_type()
+    def test_get_unregistered_job_serializer_raises_key_error(self) -> None:
+        job_type = self.faker.job_type()
         with pytest.raises(SerializerNotFoundError, match=job_type):
-            fx_job_serializer_registry.get_job_serializer(job_type=job_type)
+            self.job_serializer_registry.get_job_serializer(job_type=job_type)
 
 
 class TestJobController:
+    @pytest.fixture(autouse=True)
+    def setup_method(
+        self,
+        fx_faker: Faker,
+        fx_test_container: Container,
+    ) -> None:
+        self.faker = fx_faker
+        self.job_controller = fx_test_container.job_queue_service()
+        self.job_serializer_registry = fx_test_container.job_serializer_registry()
+        self._register_my_job_serializer()
+        self._register_math_job_serializer()
+
     def _register_my_job_serializer(self) -> None:
-        self.my_job_type = self.fx_faker.job_type()
+        self.my_job_type = self.faker.job_type()
         self._register_serializer(
             job_type=self.my_job_type,
             serializer=MyJobSerializer(),
         )
 
     def _register_math_job_serializer(self) -> None:
-        self.math_job_type = self.fx_faker.job_type()
+        self.math_job_type = self.faker.job_type()
         self._register_serializer(
             job_type=self.math_job_type,
             serializer=MathJobSerializer(),
@@ -133,23 +147,10 @@ class TestJobController:
             job_serializer=serializer,
         )
 
-    @pytest.fixture(autouse=True)
-    def setup_method(
-        self,
-        fx_faker: Faker,
-        fx_job_queue_controller: IJobQueueService,
-        fx_job_serializer_registry: JobSerializerRegistry,
-    ) -> None:
-        self.fx_faker = fx_faker
-        self.job_controller = fx_job_queue_controller
-        self.job_serializer_registry = fx_job_serializer_registry
-        self._register_my_job_serializer()
-        self._register_math_job_serializer()
-
     def _add_new_job_request_of_my_job_1(self) -> Job:
         req = NewJobRequest(
             job_type=self.my_job_type,
-            job_body=JobBody(self.fx_faker.job_body()),
+            job_body=JobBody(self.faker.job_body()),
         )
         job = self.job_controller.add_job(req)
         assert job.job_body == req.job_body
@@ -162,8 +163,8 @@ class TestJobController:
             job_body=JobBody(
                 MathJobBody(
                     op="add",
-                    a=self.fx_faker.pyint(-10, 10),
-                    b=self.fx_faker.pyint(20, 50),
+                    a=self.faker.pyint(-10, 10),
+                    b=self.faker.pyint(20, 50),
                 )
             ),
         )
@@ -179,7 +180,7 @@ class TestJobController:
         assert isinstance(job.nice, int)
 
     def test_get_non_created_job_raises_key_error(self) -> None:
-        job_id = self.fx_faker.uuid4()
+        job_id = self.faker.uuid4()
         with pytest.raises(JobNotFoundError, match=job_id):
             self.job_controller.get_job(job_id=job_id)
 
@@ -214,7 +215,7 @@ class TestJobController:
         assert returned.job_id == job.job_id
 
     def test_add_new_serialized_job(self) -> None:
-        job = self.job_controller.add_job(self.fx_faker.new_serialized_job_request())
+        job = self.job_controller.add_job(self.faker.new_serialized_job_request())
         assert job is not None
 
     def test_get_next_sjob_returns_the_sjob(self) -> None:
@@ -239,7 +240,7 @@ class TestJobController:
 
     def test_serialize_job(self) -> None:
         job1: Job[MathJobBody] = self.job_controller.add_job(
-            self.fx_faker.new_job_request(
+            self.faker.new_job_request(
                 job_type=self.math_job_type,
                 job_body=JobBody(MathJobBody(op="add", a=1, b=2)),
             )
@@ -254,7 +255,7 @@ class TestJobController:
     def test_serialize_job_invalid_object(self) -> None:
         with pytest.raises(ValueError, match="job_body is not MathJobBody"):
             self.job_controller.add_job(
-                self.fx_faker.new_job_request(
+                self.faker.new_job_request(
                     job_type=self.math_job_type, job_body=JobBody(object())
                 )
             )

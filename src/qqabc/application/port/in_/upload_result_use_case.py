@@ -6,20 +6,18 @@ if TYPE_CHECKING:
     import datetime as dt
 
     from qqabc.application.domain.model.job import (
-        StatusEnum,
+        SerializedResult,
     )
 
 
-class NewJobStatusRequest:
+class NewJobResultRequest:
     def __init__(
         self,
         *,
         job_id: str,
         issue_time: dt.datetime | None = None,
-        status: StatusEnum,
-        detail: str,
+        result: SerializedResult,
     ) -> None:
         self.job_id = job_id
         self.issue_time = issue_time
-        self.status = status
-        self.detail = detail
+        self.result = result

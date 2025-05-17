@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from qqabc.application.domain.service.job_queue_service import JobQueueService
 from tests.tdd.cli.utils import BAD_ARG_EXIT_CODE, AddJobMixin
-from tests.utils import assert_result_success, get_stdout, get_sterr
+from tests.utils import assert_result_success, get_stderr, get_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -56,7 +56,7 @@ class TestCliSubmit(AddJobMixin):
         fname = self.fx_faker.file_name()
         result = self._submit_job_by_file(fname)
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stderr = get_sterr(result)
+        stderr = get_stderr(result)
         assert "Error" in stderr
         assert fname in stderr
         assert "does not exist" in stderr

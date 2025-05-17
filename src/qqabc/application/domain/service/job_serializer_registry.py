@@ -27,12 +27,6 @@ class JobSerializer(
     ) -> GJobBody | GResult:
         raise NotImplementedError
 
-    def serialize_result(self, result: GResult) -> GSerializedResult:
-        return self.serialize(result)
-
-    def deserialize_result(self, serialized_result: GSerializedResult) -> GResult:
-        return self.deserialize(serialized_result)
-
 
 class JobSerializerRegistry:
     def __init__(self) -> None:

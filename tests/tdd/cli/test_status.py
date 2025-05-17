@@ -9,16 +9,14 @@ from tests.tdd.cli.utils import (
     AddJobMixin,
     UpdateStatusMixin,
 )
-from tests.utils import assert_result_success, assert_status, get_stdout, get_sterr
+from tests.utils import assert_result_success, assert_status, get_stderr, get_stdout
 
 
 class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_post_result_to_absent_job(self) -> None:
-        result = self.runner.invoke(
-            self.app, ["update", job_id := self.fx_faker.job_id(), "-s", "success"]
-        )
+        result = self._update_status(job_id := self.fx_faker.job_id(), "success")
         assert result.exit_code == BAD_ARG_EXIT_CODE
-        stderr = get_sterr(result)
+        stderr = get_stderr(result)
         assert "Error" in stderr
         assert job_id in stderr
         assert "does not exist" in stderr
@@ -35,7 +33,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_get_updated_status(self, status: str) -> None:
         aj, _ = self._add_job()
         for _ in range(3):
-            self._post_status(aj.job_id, status)
+            self._update_status(aj.job_id, status)
             self._assert_posted_status(aj.job_id, status)
             status = self.fx_faker.job_status_enum()
 
@@ -43,7 +41,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
     def test_update_status_with_detail(self, status: str) -> None:
         aj, _ = self._add_job()
         detail = " ".join(self.fx_faker.words())
-        self._post_status(aj.job_id, status, detail=detail)
+        self._update_status(aj.job_id, status, detail=detail)
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id])
         assert_result_success(result)
         assert detail in get_stdout(result)
@@ -54,7 +52,7 @@ class TestCliUpdateStatus(UpdateStatusMixin, AddJobMixin):
         aj, _ = self._add_job()
         statuses = []
         for _ in range(3):
-            self._post_status(aj.job_id, status)
+            self._update_status(aj.job_id, status)
             statuses.append(status)
             status = self.fx_faker.job_status_enum()
         result = self.runner.invoke(self.app, ["get", "status", aj.job_id, all_options])

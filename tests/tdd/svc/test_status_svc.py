@@ -6,13 +6,10 @@ from typing import TYPE_CHECKING
 import pytest
 
 from qqabc.application.domain.model.job import (
-    Result,
-    SerializedResult,
     StatusEnum,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
     NewJobStatusRequest,
-    NewSerializedJobStatusRequest,
 )
 from qqabc.common.exceptions import (
     JobNotFoundError,
@@ -24,12 +21,10 @@ if TYPE_CHECKING:
 
 
 class TestStatusService(TestUtils):
-    @pytest.mark.parametrize("with_result", [True, False])
     @pytest.mark.parametrize("multiple_statuses", [1, 2, 100])
     def test_get_job_result(
         self,
         *,
-        with_result: bool,
         multiple_statuses: int,
         freezer: FrozenDateTimeFactory,
     ) -> None:
@@ -38,7 +33,6 @@ class TestStatusService(TestUtils):
         )
         self._assert_job_status_is_same_as_added(
             job,
-            with_result=with_result,
             multiple_statuses=multiple_statuses,
             freezer=freezer,
         )
@@ -51,18 +45,16 @@ class TestStatusService(TestUtils):
                 job_type=self.job_type,
             )
         )
-        status_request = NewSerializedJobStatusRequest(
+        status_request = NewJobStatusRequest(
             job_id=job.job_id,
             status=StatusEnum.COMPLETED,
             detail="Job completed successfully",
-            result_serialized=SerializedResult(b"my result"),
         )
         status = self.status_svc.add_job_status(status_request)
         assert status.job_id == status_request.job_id
         assert status.issue_time == now
         assert status.status == status_request.status
         assert status.detail == status_request.detail
-        assert status.result_serialized == status_request.result_serialized
 
     def test_return_job_result(self, freezer: FrozenDateTimeFactory) -> None:
         now = self.faker.date_time(tzinfo=dt.timezone.utc)
@@ -76,14 +68,12 @@ class TestStatusService(TestUtils):
             job_id=job.job_id,
             status=StatusEnum.COMPLETED,
             detail="Job completed successfully",
-            result=Result("my result"),
         )
         status = self.status_svc.add_job_status(status_request)
         assert status.job_id == status_request.job_id
         assert status.issue_time == now
         assert status.status == status_request.status
         assert status.detail == status_request.detail
-        assert status.result == status_request.result
 
     def test_list_job_status(
         self,

@@ -1,4 +1,3 @@
-import sys
 from enum import Enum
 from typing import Annotated, Optional
 
@@ -6,18 +5,17 @@ import typer
 from rich.console import Console
 
 from qqabc.application.domain.model.job import (
-    SerializedResult,
     StatusEnum,
 )
 from qqabc.application.port.in_.post_job_status_use_case import (
-    NewSerializedJobStatusRequest,
+    NewJobStatusRequest,
 )
 from qqabc.common.exceptions import JobNotFoundError
 from qqabc_cli.di.out import di_status_service
 
 console = Console()
 
-app = typer.Typer()
+app = typer.Typer(name="update")
 
 
 class Status(str, Enum):
@@ -36,24 +34,18 @@ def _map_status(status: Status) -> StatusEnum:
     raise NotImplementedError
 
 
-@app.command()
+@app.command(name="status")
 def update(
     *,
-    job_id: str,
-    status: Annotated[Status, typer.Option("-s")],
-    detail: Annotated[Optional[str], typer.Option("-d")] = None,
-    is_read_stdin: Annotated[bool, typer.Option("--stdin")] = False,
+    status: Annotated[Status, typer.Argument()],
+    job_id: Annotated[str, typer.Option("--job-id")],
+    detail: Annotated[Optional[str], typer.Option("--detail")] = None,
 ) -> None:
     svc = di_status_service()
-    if is_read_stdin:
-        result = SerializedResult(sys.stdin.buffer.read())
-    else:
-        result = None
-    req = NewSerializedJobStatusRequest(
+    req = NewJobStatusRequest(
         job_id=job_id,
         status=_map_status(status),
         detail="" if detail is None else detail,
-        result_serialized=result,
     )
     try:
         svc.add_job_status(req)

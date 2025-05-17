@@ -17,7 +17,7 @@ from qqabc.common.exceptions import EmptyQueueError, JobNotFoundError
 
 if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_repo_adapter import (
-        JobRepoAdapter,
+        IJobRepo,
     )
     from qqabc.application.domain.service.job_serializer_registry import (
         JobSerializer,
@@ -52,14 +52,10 @@ class IJobQueueService(ABC):
     def check_job_exists(self, job_id: str) -> None:
         pass
 
-    @abstractmethod
-    def get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str:
-        pass
-
 
 class JobQueueService(IJobQueueService):
     def __init__(
-        self, job_dao: JobRepoAdapter, job_serializer_registry: JobSerializerRegistry
+        self, job_dao: IJobRepo, job_serializer_registry: JobSerializerRegistry
     ) -> None:
         self.job_dao = job_dao
         self.job_serializer_registry = job_serializer_registry
@@ -157,8 +153,3 @@ class JobQueueService(IJobQueueService):
                 raise EmptyQueueError("No jobs in queue")
             raise EmptyQueueError(f"No job with job type: {job_type}")
         return sjob
-
-    def get_job_type(self, job_id: str, job: Job | SerializedJob | None) -> str:
-        if job is not None:
-            return job.job_type
-        return self.get_job(job_id, deserialize=False).job_type

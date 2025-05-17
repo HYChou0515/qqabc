@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 import pickle
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, overload
 
 import pytest
 
 from qqabc.application.domain.model.job import (
-    NO_RESULT,
-    QQABC,
     Job,
     JobBody,
     JobStatus,
@@ -18,14 +16,12 @@ from qqabc.application.domain.model.job import (
 )
 from qqabc.application.domain.service.job_serializer_registry import (
     JobSerializer,
-    JobSerializerRegistry,
 )
+from qqabc_cli.di.out import get_container
 
 if TYPE_CHECKING:
     from freezegun.api import FrozenDateTimeFactory
 
-    from qqabc.application.domain.service.job_queue_service import IJobQueueService
-    from qqabc.application.domain.service.status_service import IStatusService
     from tests.tdd.fixtures.faker import Faker
 
 
@@ -62,15 +58,14 @@ class TestUtils:
     def setup_method(
         self,
         fx_faker: Faker,
-        fx_job_queue_controller: IJobQueueService,
-        fx_job_serializer_registry: JobSerializerRegistry,
-        fx_status_svc: IStatusService,
     ) -> None:
+        self.container = get_container(reset=True)
         self.faker = fx_faker
         self.job_type = fx_faker.job_type()
-        self.status_svc = fx_status_svc
-        self.job_controller = fx_job_queue_controller
-        fx_job_serializer_registry.register_job_serializer(
+        self.status_svc = self.container.status_service()
+        self.job_controller = self.container.job_queue_service()
+        job_serializer_registry = self.container.job_serializer_registry()
+        job_serializer_registry.register_job_serializer(
             job_type=self.job_type,
             job_serializer=MyJobSerializer(),
         )
@@ -79,28 +74,18 @@ class TestUtils:
         self,
         job: Job,
         *,
-        with_result: bool,
         multiple_statuses: int,
         freezer: FrozenDateTimeFactory,
     ) -> None:
-        result: Result | Literal[QQABC.NO_RESULT]
-        if with_result:
-            result = Result(self.faker.json())
-        else:
-            result = NO_RESULT
         latest_status: tuple[dt.datetime | None, JobStatus | None] = None, None
         for _ in range(multiple_statuses):
             freezer.move_to(t := self.faker.date_time(tzinfo=dt.timezone.utc))
             s = self.status_svc.add_job_status(
-                self.faker.new_status_request(job_id=job.job_id, result=result)
+                self.faker.new_status_request(job_id=job.job_id)
             )
             if latest_status[0] is None or t > latest_status[0]:
                 latest_status = t, s
         status1 = latest_status[1]
         status2 = self.status_svc.get_latest_status(job.job_id)
         assert status2 is not None
-        if with_result:
-            assert status2.result == result
-        else:
-            assert status2.result == NO_RESULT
         assert status1 == status2
