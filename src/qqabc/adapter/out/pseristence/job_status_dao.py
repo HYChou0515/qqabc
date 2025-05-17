@@ -3,17 +3,16 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, TypedDict
 
-from qqabc.application.domain.model.job import JobStatus
+from qqabc.application.domain.model.job import JobResult, JobStatus
 from qqabc.common.serializer import serializer
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from qqabc.application.domain.model.job import JobResult
-
 
 class JobStatusRepoDumps(TypedDict):
     status_history: dict[str, list[dict]]
+    result: dict[str, list[dict]]
 
 
 class IJobStatusRepo(ABC):
@@ -90,6 +89,7 @@ class MemoryJobStatusRepo(IJobStatusRepo):
     def dump_dict(self) -> JobStatusRepoDumps:
         return JobStatusRepoDumps(
             status_history=self._dump_status(),
+            result=self._dump_result(),
         )
 
     def load_dict(self, dumps: JobStatusRepoDumps) -> None:
@@ -97,6 +97,10 @@ class MemoryJobStatusRepo(IJobStatusRepo):
         for job_id, status_list in dumps["status_history"].items():
             self._status_hist[job_id] = [
                 JobStatus.from_serializable(status) for status in status_list
+            ]
+        for job_id, result_list in dumps["result"].items():
+            self._result[job_id] = [
+                JobResult.from_serializable(result) for result in result_list
             ]
 
     def _dump_status(self) -> dict[str, list[dict]]:
@@ -106,4 +110,13 @@ class MemoryJobStatusRepo(IJobStatusRepo):
                 for s in sorted(self._status_hist[job_id], key=lambda s: s.status_id)
             ]
             for job_id in sorted(self._status_hist.keys())
+        }
+
+    def _dump_result(self) -> dict[str, list[dict]]:
+        return {
+            job_id: [
+                s.get_serializable()
+                for s in sorted(self._result[job_id], key=lambda s: s.result_id)
+            ]
+            for job_id in sorted(self._result.keys())
         }
