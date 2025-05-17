@@ -8,9 +8,6 @@ from typing import TYPE_CHECKING
 from qqabc.application.domain.model.job import (
     JobStatus,
 )
-from qqabc.application.port.in_.post_job_status_use_case import (
-    NewJobStatusRequest,
-)
 
 if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_repo_adapter import (
@@ -19,8 +16,10 @@ if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_status_dao import IJobStatusRepo
     from qqabc.application.domain.service.job_queue_service import IJobQueueService
     from qqabc.application.domain.service.job_serializer_registry import (
-        JobSerializer,
         JobSerializerRegistry,
+    )
+    from qqabc.application.port.in_.post_job_status_use_case import (
+        NewJobStatusRequest,
     )
 
 
@@ -53,9 +52,6 @@ class StatusService(IStatusService):
         self.job_serializer_registry = job_serializer_registry
         self.job_svc = job_svc
 
-    def _get_serializer(self, job_type: str) -> JobSerializer:
-        return self.job_serializer_registry.get_job_serializer(job_type)
-
     def _deserialize_status(self, s_status: JobStatus) -> JobStatus:
         return JobStatus(
             status_id=s_status.status_id,
@@ -74,19 +70,6 @@ class StatusService(IStatusService):
             detail=status.detail,
         )
 
-    def _add_serialized_job_status(self, request: NewJobStatusRequest) -> JobStatus:
-        self.job_svc.check_job_exists(request.job_id)
-        issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
-        s_status = JobStatus(
-            status_id=uuid.uuid4().hex,
-            job_id=request.job_id,
-            issue_time=issue_time,
-            status=request.status,
-            detail=request.detail,
-        )
-        self.job_status_dao.add_status(s_status)
-        return s_status
-
     def _add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
         status = JobStatus(
@@ -102,9 +85,7 @@ class StatusService(IStatusService):
 
     def add_job_status(self, request: NewJobStatusRequest) -> JobStatus:
         self.job_svc.check_job_exists(request.job_id)
-        if isinstance(request, NewJobStatusRequest):
-            return self._add_job_status(request)
-        return self._add_serialized_job_status(request)
+        return self._add_job_status(request)
 
     def get_latest_status(
         self, job_id: str, *, deserialize: bool = True

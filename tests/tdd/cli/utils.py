@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -127,7 +128,9 @@ class UpdateStatusMixin(BaseCliTest):
         table_headers = ["Status", "Time", "Detail"]
         assert all(header in result.stdout for header in table_headers)
 
-    def _assert_posted_result(self, job_id: str, result_bytes: bytes | None) -> None:
+    def _assert_posted_result_stdout(
+        self, job_id: str, result_bytes: bytes | None
+    ) -> None:
         result = self.runner.invoke(
             self.app, ["download", "result", "--job-id", job_id, "--to-stdout"]
         )
@@ -137,6 +140,42 @@ class UpdateStatusMixin(BaseCliTest):
         else:
             assert result.exit_code == NOT_FOUND_CODE, result.stderr
             assert "has no result" in result.stderr
+
+    def _assert_posted_result_dir(
+        self, job_id: str, result_bytes: bytes | None
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(
+                self.app, ["download", "result", "--job-id", job_id, "--to-dir", tmpdir]
+            )
+            if result_bytes is not None:
+                assert_result_success(result)
+                assert result.stdout_bytes == b""
+                for fname in os.listdir(tmpdir):
+                    assert fname in result.stderr
+                    with open(f"{tmpdir}/{fname}", "rb") as f:
+                        assert result_bytes == f.read()
+            else:
+                assert result.exit_code == NOT_FOUND_CODE, result.stderr
+                assert "has no result" in result.stderr
+
+    def _assert_posted_result_file(
+        self, job_id: str, result_bytes: bytes | None
+    ) -> None:
+        with tempfile.NamedTemporaryFile() as tfile:
+            result = self.runner.invoke(
+                self.app,
+                ["download", "result", "--job-id", job_id, "--to-file", tfile.name],
+            )
+            if result_bytes is not None:
+                assert_result_success(result)
+                assert result.stdout_bytes == b""
+                assert tfile.name in result.stderr
+                with open(tfile.name, "rb") as f:
+                    assert result_bytes == f.read()
+            else:
+                assert result.exit_code == NOT_FOUND_CODE, result.stderr
+                assert "has no result" in result.stderr
 
     def _post_status(
         self,

@@ -58,13 +58,6 @@ def get_job() -> None:
     console.print(table)
 
 
-@app.command(name="result")
-def get_result(job_id: str) -> None:
-    s_status = _get_status(job_id)
-    if s_status is None:
-        raise StatusNotFoundError(job_id)
-
-
 @app.command(name="status")
 def get_status(
     *,
