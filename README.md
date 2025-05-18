@@ -31,7 +31,7 @@ QQABC is a job management system designed to handle job submissions, status trac
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
 ## Usage
