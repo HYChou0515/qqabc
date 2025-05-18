@@ -68,7 +68,18 @@ class TestJobRepoAdapter:
     def test_add_result(self) -> None:
         job_result = self.faker.job_result()
         self.job_status_dao.add_result(job_result)
-        assert job_result == self.job_status_dao.get_latest_result(job_result.job_id)
+        assert job_result == self.job_status_dao.get_kth_latest_result(
+            job_result.job_id, k=1
+        )
+        assert self.job_status_dao.get_kth_latest_result(job_result.job_id, k=0) is None
+        assert self.job_status_dao.get_kth_latest_result(job_result.job_id, k=2) is None
+        assert (
+            self.job_status_dao.get_kth_latest_result(job_result.job_id, k=-2) is None
+        )
+        assert (
+            self.job_status_dao.get_kth_latest_result(job_result.job_id, k=-1)
+            == job_result
+        )
         assert job_result in self.job_status_dao.iter_result(job_result.job_id)
 
     def test_add_status(self) -> None:

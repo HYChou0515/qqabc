@@ -129,11 +129,12 @@ class UpdateStatusMixin(BaseCliTest):
         assert all(header in result.stdout for header in table_headers)
 
     def _assert_posted_result_stdout(
-        self, job_id: str, result_bytes: bytes | None
+        self, job_id: str, result_bytes: bytes | None, *, index: int | None = None
     ) -> None:
-        result = self.runner.invoke(
-            self.app, ["download", "result", "--job-id", job_id, "--to-stdout"]
-        )
+        command = ["download", "result", "--job-id", job_id, "--to-stdout"]
+        if index is not None:
+            command.extend(["-k", str(index)])
+        result = self.runner.invoke(self.app, command)
         if result_bytes is not None:
             assert_result_success(result)
             assert result_bytes == result.stdout_bytes

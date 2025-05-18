@@ -21,7 +21,7 @@ class IResultService(ABC):
         pass
 
     @abstractmethod
-    def get_latest_result(self, job_id: str) -> JobResult | None:
+    def get_latest_result(self, job_id: str, index: int = 1) -> JobResult | None:
         pass
 
     @abstractmethod
@@ -54,11 +54,11 @@ class ResultService(IResultService):
         self.job_status_dao.add_result(result)
         return result
 
-    def get_latest_result(self, job_id: str) -> JobResult | None:
+    def get_latest_result(self, job_id: str, index: int = 1) -> JobResult | None:
         job = self.job_dao.get_job(job_id)
         if job is None:
             return None
-        result = self.job_status_dao.get_latest_result(job_id)
+        result = self.job_status_dao.get_kth_latest_result(job_id, k=index)
         return result
 
     def list_job_results(self, job_id: str) -> list[JobResult]:

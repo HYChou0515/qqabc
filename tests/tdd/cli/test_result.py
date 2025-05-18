@@ -68,11 +68,17 @@ class TestCliPostResult(UpdateStatusMixin, AddJobMixin):
         self._assert_posted_result_dir(aj.job_id, None)
         self._assert_posted_result_file(aj.job_id, None)
 
-        for _ in range(3):
+        second_latest_result = b""
+        n = 3
+        for i in range(n):
             r = self._upload_result(
                 aj.job_id, result := self.fx_faker.json_bytes(), from_=result_from
             )
+            if i == n - 2:
+                second_latest_result = result
             assert_result_success(r)
             self._assert_posted_result_stdout(aj.job_id, result)
             self._assert_posted_result_dir(aj.job_id, result)
             self._assert_posted_result_file(aj.job_id, result)
+
+        self._assert_posted_result_stdout(aj.job_id, second_latest_result, index=2)

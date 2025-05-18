@@ -35,7 +35,7 @@ class IJobStatusRepo(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_latest_result(self, job_id: str) -> JobResult | None:
+    def get_kth_latest_result(self, job_id: str, k: int) -> JobResult | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -57,6 +57,16 @@ class IJobStatusRepo(ABC):
         raise NotImplementedError
 
 
+def get_kth_latest_result(
+    iter_result: Generator[JobResult], k: int
+) -> JobResult | None:
+    results = sorted(iter_result, key=lambda r: r.issue_time, reverse=k > 0)
+    k = abs(k)
+    if k > len(results):
+        return None
+    return results[k - 1] if k > 0 else None
+
+
 class MemoryJobStatusRepo(IJobStatusRepo):
     def __init__(self) -> None:
         self._status_hist: dict[str, list[JobStatus]] = {}
@@ -67,8 +77,8 @@ class MemoryJobStatusRepo(IJobStatusRepo):
             self._result[result.job_id] = []
         self._result[result.job_id].append(result)
 
-    def get_latest_result(self, job_id: str) -> JobResult | None:
-        return max(self.iter_result(job_id), key=lambda r: r.issue_time, default=None)  # type: ignore[union-attr]
+    def get_kth_latest_result(self, job_id: str, k: int) -> JobResult | None:
+        return get_kth_latest_result(self.iter_result(job_id), k=k)
 
     def iter_result(self, job_id: str) -> Generator[JobResult]:
         if job_id not in self._result:
@@ -147,11 +157,11 @@ class DiskJobStatusRepo(IJobStatusRepo):
         with open(filename, "wb") as f:
             f.write(serializer.packb(result.get_serializable()))
 
-    def get_latest_result(self, job_id: str) -> JobResult | None:
+    def get_kth_latest_result(self, job_id: str, k: int) -> JobResult | None:
         dirname = self._job_result_path(job_id)
         if not os.path.isdir(dirname):
             return None
-        return max(self.iter_result(job_id), key=lambda r: r.issue_time, default=None)  # type: ignore[union-attr]
+        return get_kth_latest_result(self.iter_result(job_id), k=k)
 
     def iter_result(self, job_id: str) -> Generator[JobResult]:
         dirname = self._job_result_path(job_id)

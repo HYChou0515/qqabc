@@ -23,9 +23,10 @@ def download_latest_result(
     to_stdout: bool,
     to_files: list[str],
     to_dirs: list[str],
+    index: int,
 ) -> None:
     svc = di_result_service()
-    result = svc.get_latest_result(job_id)
+    result = svc.get_latest_result(job_id, index=index)
     if result is None:
         raise ResultNotFoundError(job_id)
 
@@ -51,6 +52,7 @@ def download_result(
     to_stdout: Annotated[bool, typer.Option("--to-stdout")] = False,
     to_files: Annotated[list[str], typer.Option("--to-file", default_factory=list)],
     to_dirs: Annotated[list[str], typer.Option("--to-dir", default_factory=list)],
+    index: Annotated[int, typer.Option("--index", "-k")] = 1,
 ) -> None:
     to_stdout, to_files, to_dirs = handle_default_to(
         to_stdout=to_stdout,
@@ -62,4 +64,5 @@ def download_result(
         to_stdout=to_stdout,
         to_files=to_files,
         to_dirs=to_dirs,
+        index=index,
     )

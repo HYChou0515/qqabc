@@ -96,7 +96,7 @@ def step(job_id: str):
 
 @when("我下載result指定第二個", target_fixture="got_result")
 def step(job_id: str):
-    r = qqabc_cli(["download", "result", "--job-id", job_id, "--to-stdout", "--index", "1"])
+    r = qqabc_cli(["download", "result", "--job-id", job_id, "--to-stdout", "-k", "2"])
     assert_result_success(r)
     return r.stdout
 
