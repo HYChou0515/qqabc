@@ -6,6 +6,7 @@
 
         假設 線上有一個job
         當 我upload result by stdout
+        而且 下載result
         那麼 我可以看到這個result
 
     場景: 可以新增result from file
@@ -14,6 +15,7 @@
 
         假設 線上有一個job
         當 我upload result by file
+        而且 下載result
         那麼 我可以看到這個result
 
     場景: 可以新增result from data
@@ -22,11 +24,44 @@
 
         假設 線上有一個job
         當 我upload result by data
+        而且 下載result
         那麼 我可以看到這個result
 
-    場景: 可以下載result
+    場景: 預設下載result到cwd
 
     qqabc download result --job-id `job_id`
+
+        假設 線上有一個job
+        而且 有一個result
+        當 我下載result(不指定dest)
+        那麼 我可以看到這個result
+
+    場景: 可以下載result到stdout
+
+    qqabc download result --job-id `job_id` --to-stdout
+
+        假設 線上有一個job
+        而且 有一個result
+        當 我下載result to stdout
+        那麼 我可以看到這個result
+
+    場景: 可以下載result到file
+
+    qqabc download result --job-id `job_id` --to-file `result.file`
+
+        假設 線上有一個job
+        而且 有一個result
+        當 我下載result to file
+        那麼 我可以看到這個result
+
+    場景: 可以下載result到dir
+
+    qqabc download result --job-id `job_id` --to-dir `dir`
+
+        假設 線上有一個job
+        而且 有一個result
+        當 我下載result to dir
+        那麼 我可以看到這個result
 
     場景: 有兩個result時，預設下載最新的result
 
