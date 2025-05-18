@@ -63,11 +63,21 @@
         當 我下載result to dir
         那麼 我可以看到這個result
 
-    場景: 有兩個result時，預設下載最新的result
+    場景: 有多個result時，預設下載最新的result
 
     qqabc download result --job-id `job_id`
 
-    場景: 有兩個result時，下載指定的result
+        假設 線上有一個job
+        而且 有多個result
+        當 我下載result
+        那麼 我可以看到最新的result
+
+    場景: 有多個result時，下載指定的result
 
     qqabc download result --job-id `job_id`--index 0
     qqabc download result --job-id `job_id`--index 1
+
+        假設 線上有一個job
+        而且 有多個result
+        當 我下載result指定第二個
+        那麼 我可以看到第二個result

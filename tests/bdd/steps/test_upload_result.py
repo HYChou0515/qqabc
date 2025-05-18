@@ -37,12 +37,30 @@ def test_download_result_to_cwd():
 def test_download_result_to_dir():
     pass
 
+@scenario('upload_result.feature', '有多個result時，預設下載最新的result')
+def test_download_latest_result():
+    pass
+
+@scenario('upload_result.feature', '有多個result時，下載指定的result')
+def test_download_specified_result():
+    pass
+
 @given("線上有一個job", target_fixture="job_id")
 def step(fx_workdir: str):
     job_file = create_a_job_file(fx_workdir)
     r = create_a_job_online(job_file)
     job_id = get_job_id_by_submission_return(r)
     return job_id
+
+@given("有多個result", target_fixture="results")
+def step(job_id: str):
+    results = [
+        f"{i}==".encode() + randbytes(10) for i in range(3)
+    ]
+    for result in results:
+        r = upload_result(job_id, result)
+        assert_result_success(r)
+    return results
 
 @given("有一個result", target_fixture="result")
 @when("我upload result by stdout", target_fixture="result")
@@ -68,26 +86,17 @@ def step(job_id: str):
     assert_result_success(r)
     return b"123"
 
-@when("我update status多次", target_fixture="status_and_detail")
-def step(job_id: str):
-    r = update_status(job_id, "running")
-    assert_result_success(r)
-    r = update_status(job_id, "fail")
-    assert_result_success(r)
-    r = update_status(job_id, "success")
-    assert_result_success(r)
-    return ("success", None)
-
-@when("update status with detail", target_fixture="status_and_detail")
-def step(job_id: str):
-    r = update_status(job_id, "fail", "some detail")
-    assert_result_success(r)
-    return ("fail", "some detail")
-
 @when("我下載result to stdout", target_fixture="got_result")
+@when("我下載result", target_fixture="got_result")
 @when("下載result", target_fixture="got_result")
 def step(job_id: str):
     r = qqabc_cli(["download", "result", "--job-id", job_id, "--to-stdout"])
+    assert_result_success(r)
+    return r.stdout
+
+@when("我下載result指定第二個", target_fixture="got_result")
+def step(job_id: str):
+    r = qqabc_cli(["download", "result", "--job-id", job_id, "--to-stdout", "--index", "1"])
     assert_result_success(r)
     return r.stdout
 
@@ -122,6 +131,16 @@ def step(job_id: str):
     with open(os.path.join(d, fname), "rb") as f:
         got_result = f.read()
     return got_result
+
+@then("我可以看到最新的result")
+def step(results: tuple[bytes, ...], got_result: bytes):
+    result = results[-1]
+    assert result == got_result
+
+@then("我可以看到第二個result")
+def step(results: tuple[bytes, ...], got_result: bytes):
+    result = results[-2]
+    assert result == got_result
 
 @then("我可以看到這個result")
 def step(result: bytes, got_result: bytes):
