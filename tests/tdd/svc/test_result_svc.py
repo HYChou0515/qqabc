@@ -8,6 +8,7 @@ from dependency_injector import providers
 
 from qqabc.adapter.out.pseristence.job_repo_adapter import MemoryJobRepo
 from qqabc.adapter.out.pseristence.job_status_dao import MemoryJobStatusRepo
+from qqabc.common.exceptions import JobNotFoundError
 from tests.tdd.utils import TestUtils
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class TestJobConsumer(TestUtils):
                 "get_job",
                 return_value=None,
             ) as spy,
-            pytest.raises(ValueError, match=request.job_id),
+            pytest.raises(JobNotFoundError, match=request.job_id),
         ):
             self.svc.add_job_result(request)
         spy.assert_called_once_with(request.job_id)

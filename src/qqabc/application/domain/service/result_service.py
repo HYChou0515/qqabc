@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from qqabc.application.domain.model.job import JobResult
+from qqabc.common.exceptions import JobNotFoundError
 
 if TYPE_CHECKING:
     from qqabc.adapter.out.pseristence.job_repo_adapter import IJobRepo
@@ -43,7 +44,7 @@ class ResultService(IResultService):
         issue_time = request.issue_time or dt.datetime.now(tz=dt.timezone.utc)
         job = self.job_dao.get_job(request.job_id)
         if job is None:
-            raise ValueError(f"Job with ID {request.job_id} not found.")
+            raise JobNotFoundError(request.job_id)
         result = JobResult(
             result_id=uuid.uuid4().hex,
             job_id=request.job_id,

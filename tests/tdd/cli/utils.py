@@ -202,14 +202,21 @@ class UpdateStatusMixin(BaseCliTest):
         return s_result
 
     def _upload_result(
-        self, job_id: str, result: bytes, from_: Literal["stdout", "file"]
+        self, job_id: str, result: bytes | str, from_: Literal["stdout", "file", "data"]
     ) -> ClickResult:
         command = ["upload", "result", "--job-id", job_id]
         if from_ == "stdout":
             command.append("--from-stdout")
-            return self.runner.invoke(self.app, command, input=result.decode())
+            return self.runner.invoke(self.app, command, input=result)
+        if from_ == "data":
+            if isinstance(result, bytes):
+                result = result.decode()
+            command.extend(["--from-data", result])
+            return self.runner.invoke(self.app, command)
         if from_ == "file":
             with tempfile.NamedTemporaryFile(mode="w+b") as f:
+                if isinstance(result, str):
+                    result = result.encode()
                 f.write(result)
                 f.flush()
                 job_file = f.name

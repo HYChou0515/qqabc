@@ -39,6 +39,21 @@ def update_status(job_id: str, status: str, detail: str = None):
     r = qqabc_cli(command)
     return r
 
+def upload_result(job_id: str, result: bytes):
+    command = ["upload", "result", "--job-id", job_id, "--from-stdout"]
+    r = qqabc_cli(command, input=result)
+    return r
+
+def upload_result_by_file(job_id: str, file_name: str):
+    command = ["upload", "result", "--job-id", job_id, "--from-file", file_name]
+    r = qqabc_cli(command)
+    return r
+
+def upload_result_by_data(job_id: str, data: str):
+    command = ["upload", "result", "--job-id", job_id, "--from-data", data]
+    r = qqabc_cli(command)
+    return r
+
 def get_job_id_by_submission_return(r: sp.CompletedProcess[bytes]):
     job_id = None
     for line in r.stdout.decode().splitlines():
