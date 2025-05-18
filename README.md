@@ -23,15 +23,9 @@ QQABC is a job management system designed to handle job submissions, status trac
    cd qqabc
    ```
 
-2. Create a virtual environment and activate it:
+2. Install dependencies:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   uv sync
+   uv install
    ```
 
 ## Usage
