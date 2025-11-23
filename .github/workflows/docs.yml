@@ -1,0 +1,54 @@
+name: 文檔構建和部署
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # 構建並部署文檔
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: 檢出代碼
+      uses: actions/checkout@v4
+      
+    - name: 設置 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 安裝 uv
+      uses: astral-sh/setup-uv@v3
+      
+    - name: 安裝依賴
+      run: |
+        uv sync --dev
+        
+    - name: 構建文檔
+      run: |
+        uv run make html
+        
+    - name: 設置 Pages
+      uses: actions/configure-pages@v4
+        
+    - name: 上傳文檔制品
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs/build/html
+        
+    - name: 部署到 GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

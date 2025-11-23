@@ -1,33 +1,151 @@
 [project]
-name = "url-resolver"
-version = "0.1.0"
-description = "Add your description here"
+name = "qqabc"
+dynamic = ["version"]
+description = "Simple Message Queue Implementation"
+license = {file = "LICENSE"}
 readme = "README.md"
 authors = [
     { name = "Chou Hung-Yi", email = "hychou.svm@gmail.com" }
 ]
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "multiprocess~=0.70.14",
+]
+keywords = ["message-queue", "mq", "multiprocessing", "threading"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers", 
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
+[project.urls]
+Homepage = "https://github.com/HYChou0515/qqabc"
+Documentation = "https://HYChou0515.github.io/qqabc/"
+Repository = "https://github.com/HYChou0515/qqabc.git"
+Issues = "https://github.com/HYChou0515/qqabc/issues"
+
+[tool.hatch.version]
+path = "src/qqabc/__init__.py"
+
+[project.optional-dependencies]
+httpx = [
+    "httpx>=0.28.1",
+]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "coverage>=7.6.1",
+    "furo>=2024.8.6",
+    "linkify-it-py>=2.0.3",
+    "mypy>=1.14.1",
+    "myst-parser>=3.0.1",
+    "pyright>=1.1.407",
+    "pytest>=8.3.5",
+    "ruff>=0.14.6",
+    "sphinx>=7.1.2",
+    "sphinx-autodoc-typehints>=2.0.1",
+    "sphinx-design>=0.5.0",
+    "twine>=6.1.0",
+]
+[tool.coverage.report]
+exclude_also = [
+    'def __repr__',
+    'if self.debug:',
+    'if settings.DEBUG',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if 0:',
+    'if __name__ == .__main__.:',
+    'if TYPE_CHECKING:',
+    'class .*\bProtocol\):',
+    '@(abc\.)?abstractmethod',
+    'QQBugError',
+]
+[tool.coverage.run]
+omit = [
+    "tests/*",
+]
+
 [tool.ruff]
 target-version = "py38"
 line-length = 88
+[tool.ruff.lint]
+exclude = [
+    "scripts/*",
+    "docs/*",
+]
+select = [
+    "ALL", # include all the rules, including new ones
+]
+ignore = [
+    "D417",# Missing argument descriptions in the docstring for `worker_sum`: `out`, `q`
+    "BLE001", # Do not catch blind exception: `Exception`
+    "PTH123", # `open()` should be replaced by `Path.open()`
+    "EM102", # Exception must not use an f-string literal, assign to variable first
+    "EM101",  # Exception must not use a string literal, assign to variable first
+    "RUF002", # Docstring contains ambiguous `，`
+    #### modules
+    "ANN", # flake8-annotations
+    "COM", # flake8-commas
+    "C90", # mccabe complexity
+    "DJ",  # django
+    "EXE", # flake8-executable
+    "T10", # debugger
+    "TID", # flake8-tidy-imports
+
+    #### specific rules
+    "D100",   # ignore missing docs
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D200",
+    "D205",
+    "D212",
+    "D400",
+    "D401",
+    "D415",
+    "E402",   # false positives for local imports
+    "E501",   # line too long
+    "TRY003", # external messages in exceptions are too verbose
+    "TD002",
+    "TD003",
+    "FIX002", # too verbose descriptions of todos
+]
+
 [tool.ruff.format]
 docstring-code-format = true
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "C90"]
-
-[dependency-groups]
-dev = [
-    "mypy>=1.14.1",
-    "pyright>=1.1.407",
-    "pytest>=8.3.5",
-    "ruff>=0.14.6",
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "SIM117", # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "ARG002",  # Unused method argument
+    "PTH",
+    "PLC0415",  # `import` should be at the top-level of a file
+    "PLR2004", # Magic value used in comparison, consider replacing `2` with a constant variable
+    "ERA001",  # Found commented-out code
+    "S101",  # Use of `assert` detected
 ]
+
+[[tool.mypy.overrides]]
+module = "multiprocess"
+ignore_missing_imports = true
+
