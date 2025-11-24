@@ -257,7 +257,3 @@ with open("urls2.txt", "rb") as fp:
     data2_disk = fp.read()
     # data2_disk 為 4500 bytes 的下載內容
 ```
-
----
-
-如需更詳細 API 說明，請參考 `src/qqabc/rurl.py` 內的 docstring。
