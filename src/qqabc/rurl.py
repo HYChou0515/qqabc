@@ -14,7 +14,12 @@ from logging import ERROR, INFO, getLogger
 from queue import Empty
 from typing import IO, TYPE_CHECKING, Generator, Literal, overload
 
-from typing_extensions import Self
+try:
+    # Python 3.11+
+    from typing import Self
+except ImportError:
+    # Python version <= 3.10
+    from typing_extensions import Self
 
 import qqabc.qq
 
@@ -251,7 +256,7 @@ def _worker_print(log_q: qqabc.qq.Q[LogData], min_interval: float = 0.1):
         else:
             prefix = f"[Worker {log.worker_id} | {timestamp}]"
         if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
-            logger.log(log.level, "{prefix} - {log.msg}", prefix=prefix, log=log)
+            logger.log(log.level, "%s - %s", prefix, log.msg)
             last_print = _getnow()
 
 
