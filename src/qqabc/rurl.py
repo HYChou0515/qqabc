@@ -14,12 +14,15 @@ from logging import ERROR, INFO, getLogger
 from queue import Empty
 from typing import IO, TYPE_CHECKING, Generator, Literal, overload
 
-try:
-    # Python 3.11+
-    from typing import Self
-except ImportError:
-    # Python version <= 3.10
+if TYPE_CHECKING:
+    from pathlib import Path
+
     from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
 
 import qqabc.qq
 
@@ -367,16 +370,16 @@ class IResolver(ABC):
 
     @overload
     def open(
-        self, filepath: str, mode: Literal["rb"]
+        self, filepath: str | Path, mode: Literal["rb"]
     ) -> AbstractContextManager[IO[bytes]]: ...
     @overload
     def open(
-        self, filepath: str, mode: Literal["r"]
+        self, filepath: str | Path, mode: Literal["r"]
     ) -> AbstractContextManager[IO[str]]: ...
 
     @abstractmethod
     def open(
-        self, filepath: str, mode: Literal["r", "rb"] = "r"
+        self, filepath: str | Path, mode: Literal["r", "rb"] = "r"
     ) -> AbstractContextManager[IO]:
         """Open a file that may contain a URL, resolving it if necessary.
 
@@ -438,7 +441,10 @@ class Resolver(IResolver):
         return self.task_cnt
 
     @contextmanager
-    def open(self, filepath: str, mode: Literal["r", "rb"] = "r") -> Generator[IO]:
+    def open(
+        self, filepath: str | Path, mode: Literal["r", "rb"] = "r"
+    ) -> Generator[IO]:
+        filepath = str(filepath)
         outd = None
         with open(filepath, "rb") as f:
             try:

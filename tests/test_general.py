@@ -2,9 +2,19 @@ from __future__ import annotations
 
 import re
 from io import BytesIO
+from typing import TYPE_CHECKING, Literal
 
 import pytest
-from typing_extensions import Literal
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from typing_extensions import Literal
+else:
+    try:
+        from typing import Literal
+    except ImportError:
+        from typing_extensions import Literal
 
 
 def get_url(read_mode: Literal["r", "rb"]) -> str:
@@ -101,7 +111,7 @@ def test_usage3():
 
 
 @pytest.mark.parametrize("read_mode", ["rb", "r"])
-def test_usage4(tmpdir, read_mode: str):
+def test_usage4(tmpdir: Path, read_mode: Literal["rb", "r"]):
     """測試open方法的使用情境
 
     測試使用open方法來打開一個包含URL的檔案, 會回傳IO物件來讀取下載的資料。
@@ -124,7 +134,7 @@ def test_usage4(tmpdir, read_mode: str):
 
 
 @pytest.mark.parametrize("read_mode", ["rb", "r"])
-def test_usage5(tmpdir, read_mode: str):
+def test_usage5(tmpdir: Path, read_mode: Literal["rb", "r"]):
     """測試open方法的使用情境, cache size設為0
 
     測試使用open方法來打開一個包含URL的檔案, 會回傳IO物件來讀取下載的資料。
@@ -196,7 +206,7 @@ def test_usage61():
         resolver.add_wait(url)
 
 
-def test_usage7(tmpdir):
+def test_usage7(tmpdir: Path):
     """測試open方法的使用情境
 
     測試使用open方法來打開多個包含URL的檔案, 會回傳IO物件來讀取下載的資料。
