@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import re
 from io import BytesIO
+from pathlib import Path
+from textwrap import dedent
 from typing import TYPE_CHECKING, Literal
 
 import pytest
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
+    from pytest_httpx import HTTPXMock
     from typing_extensions import Literal
 else:
     try:
@@ -161,7 +162,8 @@ def test_usage6():
     測試使用一個會在啟動時拋出例外的Worker類別,
     來確保Resolver能正確處理Worker啟動失敗的情況,會退出process並拋出WorkersDiedOutError例外。
     """
-    from qqabc.rurl import InData, IWorker, OutData, WorkersDiedOutError, resolve
+    from qqabc.rurl import InData, IWorker, OutData, resolve
+    from qqabc.types import WorkersDiedOutError
 
     class BadWorker(IWorker):
         def start(self, worker_id: int):
@@ -182,7 +184,8 @@ def test_usage61():
     來確保Resolver能正確處理Worker啟動失敗的情況。
     這裡只要還有一個Worker啟動成功, 就能正常下載資料。
     """
-    from qqabc.rurl import DefaultWorker, resolve
+    from qqabc.rurl import resolve
+    from qqabc.rurl.basic import DefaultWorker
 
     class Worker(DefaultWorker):
         def start(self, worker_id: int):
@@ -217,7 +220,8 @@ def test_usage7(tmpdir: Path):
     這次使用自訂的Worker來限制下載內容的大小, 以確保測試的穩定性。
     下載的內容會是4500 bytes, 因此cache size設為5000 bytes能裝下一個但裝不下兩個。
     """
-    from qqabc.rurl import DefaultWorker, InData, OutData, resolve
+    from qqabc.rurl import InData, OutData, resolve
+    from qqabc.rurl.basic import DefaultWorker
 
     class Worker(DefaultWorker):
         def resolve(self, indata: InData) -> OutData:
@@ -275,7 +279,8 @@ def test_usage9(tmpdir):
 
     測試使用自訂的UrlGrammar來解析URL。
     """
-    from qqabc.rurl import BasicUrlGrammar, resolve
+    from qqabc.rurl import resolve
+    from qqabc.rurl.basic import BasicUrlGrammar
 
     class CustomUrlGrammar(BasicUrlGrammar):
         def main_rule(self, content: str) -> str | None:
@@ -292,3 +297,29 @@ def test_usage9(tmpdir):
         with resolver.open(tmpdir / "url.txt", "rb") as fp:
             assert isinstance(fp.read(1), bytes)
             assert fp.seek(0, 2) > 1024
+
+
+def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
+    """Test that plugins are correctly imported."""
+    from qqabc.rurl import Plugin, resolve
+
+    tmpdir = Path(tmpdir)
+
+    httpx_mock.add_response(
+        url="https://test_url.py",
+        content=dedent("""
+        from qqabc.rurl.basic import BasicUrlGrammar
+        class TestUrlGrammar(BasicUrlGrammar):
+            def main_rule(self, content: str) -> str | None:
+                if content.startswith("test://"):
+                    return "https://picsum.photos/400"
+                return None
+
+        def get_grammars():
+            return [TestUrlGrammar()]
+        """),
+    )
+    with resolve(plugins=[Plugin("https://test_url.py", cache_dir=tmpdir)]) as _:
+        pass
+    assert tmpdir.exists()
+    assert any(tmpdir.iterdir())

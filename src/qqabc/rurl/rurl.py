@@ -1,21 +1,41 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import importlib.util
 import io
+import os
+import re
 import shutil
-import tempfile
+import sys
 import traceback
+import urllib.request
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from functools import partial
-from io import BytesIO
 from logging import ERROR, INFO, getLogger
+from pathlib import Path
 from queue import Empty
 from typing import IO, TYPE_CHECKING, Generator, Literal, overload
 
+import qqabc.qq
+from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage
+from qqabc.types import (
+    DataDeletedError,
+    InData,
+    InvalidTaskError,
+    IStorage,
+    IUrlGrammar,
+    IWorker,
+    LogData,
+    OutData,
+    QQBugError,
+    WorkersDiedOutError,
+)
+
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Callable
 
     from typing_extensions import Self
 else:
@@ -24,168 +44,8 @@ else:
     except ImportError:
         from typing_extensions import Self
 
-import qqabc.qq
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 logger = getLogger(__name__)
-
-
-@dataclass
-class LogData:
-    task_id: int | None
-    worker_id: int
-    msg: str
-    time: dt.datetime
-    must: bool
-    level: int = INFO
-
-
-@dataclass
-class InData:
-    task_id: int
-    url: str
-    fpath: str | None = None
-
-
-@dataclass
-class OutData:
-    task_id: int
-    data: BytesIO
-
-
-class DataDeletedError(KeyError):
-    def __init__(self, task_id: int):
-        super().__init__(f"Output data for task_id {task_id} has been deleted.")
-
-
-class WorkersDiedOutError(RuntimeError):
-    def __init__(self):
-        super().__init__("All workers have stopped unexpectedly.")
-
-
-class QQBugError(RuntimeError):
-    def __init__(self, msg: str):
-        super().__init__(msg)
-
-
-class InvalidTaskError(ValueError):
-    def __init__(self, task_id: int):
-        super().__init__(f"Invalid task_id: {task_id}")
-
-
-class IStorage(ABC):
-    @abstractmethod
-    def register(self, indata: InData):
-        pass
-
-    @abstractmethod
-    def save(self, task_id: int, outdata: OutData):
-        pass
-
-    @abstractmethod
-    def load(self, task_id: int) -> OutData:
-        """Load the output data associated with the given task ID.
-
-        Raises ValueError if the data has been deleted.
-        """
-
-    @abstractmethod
-    def delete(self, task_id: int) -> None:
-        pass
-
-    @abstractmethod
-    def delete_all(self) -> None:
-        pass
-
-    @abstractmethod
-    def has(self, task_id: int) -> bool:
-        pass
-
-
-class Storage(IStorage):
-    def __init__(self, cached_size: int):
-        self.cached_size = cached_size
-        self.indata_storage: dict[int, InData] = {}
-        self.outdata_storage: dict[int, OutData] = {}
-        self.size = 0
-        self.saved: set[int] = set()
-
-    def register(self, indata: InData):
-        self.indata_storage[indata.task_id] = indata
-
-    def save(self, task_id: int, outdata: OutData):
-        if task_id in self.saved:
-            raise ValueError(
-                f"Output data for task_id {task_id} has already been saved."
-            )
-        this_size = outdata.data.getbuffer().nbytes
-        while self.size + this_size > self.cached_size and self.outdata_storage:
-            oldest_task_id = min(self.outdata_storage)
-            self.delete(oldest_task_id)
-        self.saved.add(task_id)
-        if self.size + this_size > self.cached_size:
-            indata = self.indata_storage.pop(task_id)
-            self._save_to_disk(indata, outdata)
-        else:
-            self.size += this_size
-            self.outdata_storage[task_id] = outdata
-
-    def load(self, task_id: int) -> OutData:
-        if task_id not in self.outdata_storage and task_id in self.saved:
-            raise DataDeletedError(task_id)
-        return self.outdata_storage[task_id]
-
-    def _save_to_disk(self, indata: InData, outdata: OutData):
-        if indata.fpath is not None:
-            with tempfile.NamedTemporaryFile(delete=False) as tmpf:
-                tmpf.write(outdata.data.getbuffer())
-            shutil.move(tmpf.name, indata.fpath)
-            self.size -= outdata.data.getbuffer().nbytes
-
-    def delete(self, task_id: int) -> None:
-        outdata = self.outdata_storage.pop(task_id)
-        indata = self.indata_storage.pop(task_id)
-        self._save_to_disk(indata, outdata)
-
-    def delete_all(self) -> None:
-        for task_id in list(self.outdata_storage.keys()):
-            self.delete(task_id)
-
-    def has(self, task_id: int) -> bool:
-        return task_id in self.saved
-
-
-class IWorker(ABC):
-    @abstractmethod
-    def start(self, worker_id: int) -> AbstractContextManager[IWorker]:
-        pass
-
-    @abstractmethod
-    def resolve(self, indata: InData) -> OutData:
-        pass
-
-    @property
-    def input_timeout(self) -> float | None:
-        return None
-
-
-class DefaultWorker(IWorker):
-    @contextmanager
-    def start(self, worker_id: int):
-        self.worker_id = worker_id
-        import httpx  # noqa: PLC0415
-
-        with httpx.Client(follow_redirects=True) as client:
-            self.client = client
-            yield self
-
-    def resolve(self, indata: InData) -> OutData:
-        resp = self.client.get(indata.url)
-        resp.raise_for_status()
-        b = BytesIO(resp.content)
-        return OutData(task_id=indata.task_id, data=b)
 
 
 def _make_log(
@@ -261,79 +121,6 @@ def _worker_print(log_q: qqabc.qq.Q[LogData], min_interval: float = 0.1):
         if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
             logger.log(log.level, "%s - %s", prefix, log.msg)
             last_print = _getnow()
-
-
-class IUrlGrammar(ABC):
-    """URL語法規則介面
-
-    定義用於解析檔案中URL的語法規則。
-    實作此介面的類別應該提供方法來檢查檔案內容是否符合語法規則,
-    並從檔案中解析出URL。
-    """
-
-    @abstractmethod
-    def parse_url(self, fp: IO[bytes]) -> str | None:
-        """從檔案物件中解析出URL。
-
-        Args:
-            fp: 檔案物件, 以二進位模式開啟。
-
-        Returns:
-            成功解析出URL時回傳URL字串, 否則回傳None。
-        """
-
-
-class BasicUrlGrammar(IUrlGrammar):
-    """基本的URL語法規則
-    提供基本的URL解析功能。
-
-    提供兩個好用的util方法:
-    - sanity_check: 用於快速檢查檔案內容是否可能包含URL。
-    - parse_url: 用於從檔案中解析出URL。
-
-    一般來說, 使用者可以繼承此類別並覆寫main_rule方法來實作自訂的URL解析規則。
-    """
-
-    def __init__(self):
-        self.url_min = 5
-        self.url_max = 512
-
-    def sanity_check(self, fp: IO[bytes]) -> bool:
-        """快速檢查檔案內容是否可能包含URL。
-
-        我們相信一個有效的URL應該符合以下條件:
-        1. 檔案大小介於url_min與url_max之間。
-        2. 檔案前10個位元組中包含"://"
-        """
-        sz = fp.seek(0, 2)
-        if sz < self.url_min or sz > self.url_max:
-            return False
-        fp.seek(0)
-        if b"://" not in fp.read(10):
-            return False
-        fp.seek(0)
-        return True
-
-    def main_rule(self, content: str) -> str | None:
-        """從字串中解析出URL的主要規則。
-        預設實作為檢查字串是否以"http://"或"https://"開頭。
-        """
-        if content.startswith(("http://", "https://")):
-            return content.strip()
-        return None
-
-    def parse_url(self, fp: IO[bytes]) -> str | None:
-        """從檔案物件中解析出URL。"""
-        if not self.sanity_check(fp):
-            return None
-        try:
-            fp.seek(0)
-            content = fp.read(self.url_max).decode("utf-8")
-            url = self.main_rule(content)
-            if url is not None:
-                return url
-        except UnicodeDecodeError:
-            return None
 
 
 class IResolver(ABC):
@@ -523,12 +310,158 @@ class Resolver(IResolver):
         raise QQBugError("Unreachable code reached.")
 
 
+@dataclass
+class Plugin:
+    url: str
+    cache_dir: Path | None = None
+    httpx_options: dict | None = None
+    rm_cache: bool = False
+
+
+def get_grammar_cache_dir(
+    *, cache_dir: Path | None = None, rm_cache: bool = False
+) -> Path:
+    """返回緩存目錄，遵守 XDG config standard"""
+    if cache_dir is None:
+        xdg_config_home = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
+        cache_dir = Path(xdg_config_home) / "qqabc" / "grammar_cache"
+    if rm_cache and cache_dir.exists():
+        shutil.rmtree(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+def load_remote_plugin(
+    plugin: Plugin,
+) -> tuple[Callable[[], IWorker] | None, list[IUrlGrammar]]:
+    """
+    下載遠端 plugin Python 檔案到緩存目錄，並返回其中定義的 Grammar 列表與可選 Worker 工廠。
+
+    Plugin 模組規範：
+        - 可選函式 `get_grammars() -> list[IUrlGrammar]`。
+        - 可選函式 `get_worker_factory_func() -> Callable[[], IWorker]`。
+        - 建議搭配內部緩存避免重複初始化：
+            ```python
+            _cached_grammars: list[IUrlGrammar] | None = None
+
+
+            def get_grammars() -> list[IUrlGrammar]:
+                global _cached_grammars
+                if _cached_grammars is None:
+                    _cached_grammars = [BasicUrlGrammar(), AdvancedGrammar()]
+                return _cached_grammars
+            ```
+          這樣可以：
+            - 延遲初始化 Grammar 實例，避免 import 時執行副作用
+            - 每次呼叫返回同一份實例，避免重複生成
+            - 支援依據參數或環境動態初始化 Grammar
+
+    函式行為：
+        1. 檢查本地緩存目錄（由 `get_grammar_cache_dir()` 決定）是否已有對應檔案。
+        2. 若不存在，從指定 URL 下載並存到緩存。
+           - 優先使用 `httpx`（可透過 `httpx_options` 傳入如 `verify`, `follow_redirects`）。
+           - 若 `httpx` 不可用，fallback 至 `urllib.request.urlretrieve`。
+        3. 使用安全化檔名 + URL hash 生成唯一本地檔案名，避免非法字元與 module 衝突。
+        4. 動態載入 Python module。
+        5. 呼叫 `get_grammars()`（若存在）取得 Grammar 列表，呼叫 `get_worker_factory_func()`（若存在）取得 Worker 工廠。
+        6. 如果對應函式不存在，會返回空列表或 None，但不會拋出例外。
+
+    Args:
+        url (str): 遠端 plugin Python 檔案的 URL，例如：
+            "https://myserver.com/url_grammars/basic_url.py"
+        httpx_options (dict | None): 傳入給 httpx.Client 的額外參數，若使用 urllib fallback 則忽略。
+
+    Returns:
+        tuple[Callable[[], IWorker] | None, list[IUrlGrammar]]:
+            - 第一個元素：`get_worker_factory_func()` 返回的 Worker 工廠，若不存在則為 None。
+            - 第二個元素：`get_grammars()` 返回的 Grammar 列表，若不存在或函式返回 None，則為空列表。
+
+    Cache:
+        - Plugin 會被下載到本地緩存目錄（`~/.config/qqabc/grammar_cache`）。
+        - 如果 cache 中已有同名檔案，會直接使用本地檔案，而不重新下載。
+        - 檔案名稱由 URL 最後一段經過非法字元替換與 hash 處理決定。
+
+    Example:
+        >>> worker_factory, grammars = load_remote_plugin(
+        ...     "https://myserver.com/url_grammars/basic_url.py"
+        ... )
+        >>> for g in grammars:
+        ...     logger.info(g.parse_url(some_file))
+        >>> if worker_factory is not None:
+        ...     worker = worker_factory()
+    """
+    url = plugin.url
+    httpx_options = plugin.httpx_options
+    cache_dir = get_grammar_cache_dir(
+        cache_dir=plugin.cache_dir, rm_cache=plugin.rm_cache
+    )
+    orig_filename = url.split("/")[-1]
+    safe_filename = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", orig_filename)  # 非法字元換成 "_"
+    url_hash = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]  # noqa: S324
+    local_filename = f"{safe_filename}_{url_hash}.py"
+
+    local_path = cache_dir / local_filename
+
+    # 如果本地不存在，下載
+    if not local_path.exists():
+        logger.info("Downloading plugin from %s -> %s", url, local_path)
+        try:
+            import httpx  # noqa: PLC0415
+
+            client_args = httpx_options if httpx_options is not None else {}
+            with httpx.Client(**client_args) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                with open(local_path, "wb") as f:
+                    f.write(response.content)
+        except ImportError:
+            logger.info("httpx not available, falling back to urllib")
+            if httpx_options:
+                logger.warning(
+                    "httpx_options provided but httpx is not installed; ignoring options."
+                )
+            urllib.request.urlretrieve(url, local_path)  # noqa: S310
+    else:
+        logger.info("Using cached plugin: %s", local_path)
+
+    # 動態 import，使用唯一 module 名稱
+    module_name = f"plugin_{url_hash}"
+    spec = importlib.util.spec_from_file_location(module_name, local_path)
+    if spec.loader is None:
+        logger.warning("Cannot load plugin module from %s", local_path)
+        return None, []
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    # 呼叫 get_grammars()
+    get_grammars_func = getattr(module, "get_grammars", None)
+    if get_grammars_func is None:
+        logger.warning("Plugin module %s must define get_grammars()", orig_filename)
+        grammars = []
+    else:
+        grammars = get_grammars_func()
+
+    # 呼叫 worker_factory()
+    get_worker_factory_func = getattr(module, "get_worker_factory_func", None)
+    if get_worker_factory_func is None:
+        logger.warning(
+            "Plugin module %s must define get_worker_factory_func()", orig_filename
+        )
+        worker_factory = None
+    else:
+        worker_factory = get_worker_factory_func()
+
+    return worker_factory, grammars or []
+
+
 def resolve(
     *,
     num_workers: int = 4,
     cache_size: int = 1 << 20,
     worker: type[IWorker] | Callable[[], IWorker] | None = None,
     grammars: list[IUrlGrammar] | None = None,
+    plugins: list[Plugin] | list[str] | None = None,
 ) -> IResolver:
     """建立一個Resolver物件來下載URL資源。
 
@@ -551,7 +484,22 @@ def resolve(
     若無法解析出URL, 將認為該檔案不是URL，會直接打開原始檔案。
     """
     storage: IStorage = Storage(cached_size=cache_size)
-    grammars = grammars if grammars is not None else [BasicUrlGrammar()]
+    grammars: list[IUrlGrammar] = (
+        grammars if grammars is not None else [BasicUrlGrammar()]
+    )
+    _plugins = []
+    if plugins is not None:
+        for p in plugins:
+            if isinstance(p, str):
+                _plugins.append(Plugin(url=p))
+            else:
+                _plugins.append(p)
+    for p in _plugins:
+        worker_factory, remote_grammars = load_remote_plugin(p)
+        grammars.extend(remote_grammars)
+        if worker is None and worker_factory is not None:
+            # 使用第一個合法的worker_factory
+            worker = worker_factory
 
     return Resolver(
         num_workers,

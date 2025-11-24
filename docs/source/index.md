@@ -1,8 +1,5 @@
 # QQabc
 
-## 📚 文檔
-
-# 使用手冊
 ## 1. 基本介紹
 
 `qqabc.rurl` 提供高效的 URL 資源下載與解析工具，支援多工、快取、檔案自動判斷與自訂解析規則。核心類別為 `Resolver`，可透過 `resolve()` 工廠方法建立。
@@ -16,6 +13,17 @@ with resolve() as resolver:
     od = resolver.add_wait("https://picsum.photos/200")
     data = od.data.read()
     # data 為url的下載結果binary
+```
+
+**安裝**
+```
+pip install qqabc[httpx]
+```
+
+不想要安裝httpx可使用
+
+```
+pip install qqabc
 ```
 
 ## 3. 主要功能
