@@ -109,10 +109,11 @@ class BasicUrlGrammar(IUrlGrammar):
         2. 檔案前10個位元組中包含"://"
         """
         sz = fp.seek(0, 2)
+        fp.seek(0)
         if sz < self.url_min or sz > self.url_max:
             return False
-        fp.seek(0)
         if b"://" not in fp.read(10):
+            fp.seek(0)
             return False
         fp.seek(0)
         return True
