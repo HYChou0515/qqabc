@@ -161,7 +161,7 @@ class IResolver(ABC):
     ) -> AbstractContextManager[IO[bytes]]: ...
     @overload
     def open(
-        self, filepath: str | Path, mode: Literal["r"]
+        self, filepath: str | Path, mode: Literal["r"] = "r"
     ) -> AbstractContextManager[IO[str]]: ...
 
     @abstractmethod

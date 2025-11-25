@@ -255,7 +255,7 @@ def test_usage7(tmpdir: Path):
         assert fp.seek(0, 2) > 1024
 
 
-def test_usage8(tmpdir):
+def test_usage8(tmpdir: Path):
     """測試open方法的使用情境, 檔案內容不是URL
 
     測試使用open方法來打開一個不包含URL的檔案, 會回傳IO物件來讀取原始的檔案內容。
@@ -274,7 +274,7 @@ def test_usage8(tmpdir):
         assert fp.read() == content
 
 
-def test_usage9(tmpdir):
+def test_usage9(tmpdir: Path):
     """測試自訂UrlGrammar的使用情境
 
     測試使用自訂的UrlGrammar來解析URL。
