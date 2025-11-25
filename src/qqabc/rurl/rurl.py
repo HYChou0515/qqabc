@@ -157,6 +157,35 @@ class IResolver(ABC):
         until no more tasks are available within the timeout period.
         """
 
+    @abstractmethod
+    def iter_completed(self, timeout: float | None = 0) -> Generator[OutData]:
+        """Generator that yields completed tasks as they finish.
+
+        The generator will yield completed tasks
+        until no more tasks are available within the timeout period.
+        """
+
+    @overload
+    def iter_open(self, mode: Literal["rb"]) -> Generator[IO[bytes]]: ...
+    @overload
+    def iter_open(self, mode: Literal["r"] = "r") -> Generator[IO[str]]: ...
+
+    @abstractmethod
+    def iter_open(
+        self,
+        mode: Literal["r", "rb"] = "r",
+        timeout: float | None = None,
+    ) -> Generator[IO]:
+        """Iterator that opens resolved URLs as file-like objects.
+
+        Args:
+            mode: The mode in which to open the file-like objects (e.g., 'r', 'rb').
+            timeout: The timeout period to wait for completed tasks. If None, waits indefinitely.
+
+        Yields:
+            File-like objects containing the resolved URL data.
+        """
+
     @overload
     def open(
         self, filepath: str | Path, mode: Literal["rb"]
@@ -259,12 +288,31 @@ class Resolver(IResolver):
             else:
                 yield io.StringIO(outd.data.read().decode("utf-8"))
 
+    def iter_open(
+        self,
+        mode: Literal["r", "rb"] = "r",
+        timeout: float | None = 0,
+    ) -> Generator[IO]:
+        for msg in self._iter(timeout=timeout):
+            outd = self._get_result(msg.data)
+            outd.data.seek(0)
+            if "b" in mode:
+                yield outd.data
+            else:
+                yield io.StringIO(outd.data.read().decode("utf-8"))
+
     def add_wait(self, url: str | None = None, fname: str | None = None):
         if not (task_id := self.saved_task_id.get((url, str(fname)))):
             task_id = self.add(url, fname=fname)
         return self.wait(task_id)
 
-    def add(self, url: str | None = None, fname: str | None = None) -> int:
+    def add(
+        self,
+        url: str | None = None,
+        fname: str | None = None,
+        *,
+        on_err: Literal["raise", "none"] = "raise",
+    ) -> int | None:
         if url is None:
             with open(fname, "rb") as f:
                 surl = self._solve_url(f)
@@ -272,7 +320,9 @@ class Resolver(IResolver):
             surl = self._solve_url(url)
         surl = surl or url
         if surl is None:
-            raise InvalidUrlError("Either url or fname must be provided.")
+            if on_err == "raise":
+                raise InvalidUrlError("Either url or fname must be provided.")
+            return None
         task_id = self._get_task_id()
         self.saved_task_id[(url, str(fname))] = task_id
         indata = InData(task_id=task_id, url=surl, fpath=fname)
@@ -295,16 +345,24 @@ class Resolver(IResolver):
         self.log_q.stop(self.printer)
 
     def completed(self, timeout: float = 0):
-        for msg in self._iter(timeout=timeout, empty_ok=True):
+        for msg in self._iter(timeout=timeout):
             task_id = msg.data
             yield self._get_result(task_id)
 
-    def _iter(self, timeout: float = 0.05, *, empty_ok: bool):
+    def iter_completed(self, timeout: float | None = 0) -> Generator[OutData]:
+        for msg in self._iter(timeout=timeout):
+            task_id = msg.data
+            yield self._get_result(task_id)
+
+    def _iter(self, timeout: float | None):
         """Generator that yields completed tasks as they finish.
 
         If timeout is set to a float value, the generator will yield
         completed tasks until no more tasks are available within the timeout period.
         """
+        empty_ok = timeout is not None
+        if timeout is None:
+            timeout = 0.05
         while True:
             try:
                 yield from self.output_q.iter(timeout=timeout)
@@ -319,7 +377,7 @@ class Resolver(IResolver):
             raise InvalidTaskError(task_id)
         if self.storage.has(task_id):
             return self._get_result(task_id)
-        for msg in self._iter(timeout=0.05, empty_ok=False):
+        for msg in self._iter(timeout=None):
             completed_task_id = msg.data
             if completed_task_id == task_id:
                 return self._get_result(task_id)

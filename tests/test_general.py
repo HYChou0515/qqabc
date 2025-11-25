@@ -404,4 +404,13 @@ def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
             resolver.add(fname=path)
         for path in tmpdir.glob("*.txt"):
             with resolver.open(path, "rb") as fp:
-                assert fp.seek(0, 2) > 1000
+                assert fp.seek(0, 2) == 1500
+
+    add_response("c")
+    add_response("d")
+
+    with resolve() as resolver:
+        for path in tmpdir.glob("*.txt"):
+            resolver.add(fname=path, on_err="none")
+        for fp in resolver.iter_open():
+            assert fp.seek(0, 2) == 1500
