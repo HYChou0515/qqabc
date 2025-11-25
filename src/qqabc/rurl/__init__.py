@@ -1,13 +1,12 @@
 __all__ = (
     "BasicUrlGrammar",
     "DefaultWorker",
+    "IResolver",
     "IWorker",
     "InData",
     "OutData",
     "Plugin",
-    "WorkersDiedOutError",
     "resolve",
 )
 from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker
-from qqabc.rurl.rurl import InData, IWorker, OutData, Plugin, resolve
-from qqabc.types import WorkersDiedOutError
+from qqabc.rurl.rurl import InData, IResolver, IWorker, OutData, Plugin, resolve
