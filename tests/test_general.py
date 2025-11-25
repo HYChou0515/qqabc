@@ -371,3 +371,37 @@ def test_add_should_resolve(tmpdir: Path):
     with resolve() as resolver:
         data = resolver.add_wait("custom://example/resource").data
         assert data.seek(0, 2) > 1024
+
+
+def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    class CustomUrlGrammar(BasicUrlGrammar):
+        def main_rule(self, content: str) -> str | None:
+            if content.startswith("custom://"):
+                return f"https://{content.removeprefix('custom://')}"
+            return None
+
+    resolve = ResolverFactory(
+        grammars=[CustomUrlGrammar()],
+    )
+    tmpdir = Path(tmpdir)
+
+    def add_response(foo: str):
+        httpx_mock.add_response(
+            url=f"https://example.com/{foo}",
+            content=bytes(foo * 1500, "utf-8"),
+        )
+        with open(tmpdir / f"{foo}.txt", "w") as f:
+            f.write(f"custom://example.com/{foo}")
+
+    add_response("a")
+    add_response("b")
+
+    with resolve() as resolver:
+        for path in tmpdir.glob("*.txt"):
+            resolver.add(fname=path)
+        for path in tmpdir.glob("*.txt"):
+            with resolver.open(path, "rb") as fp:
+                assert fp.seek(0, 2) > 1000

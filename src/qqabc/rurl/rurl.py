@@ -24,6 +24,7 @@ from qqabc.types import (
     DataDeletedError,
     InData,
     InvalidTaskError,
+    InvalidUrlError,
     IStorage,
     IUrlGrammar,
     IWorker,
@@ -110,16 +111,18 @@ def _getnow():
 
 def _worker_print(log_q: qqabc.qq.Q[LogData], min_interval: float = 0.1):
     last_print = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
-    for msg in log_q:
-        log = msg.data
-        timestamp = log.time.strftime("%Y-%m-%d %H:%M:%S")
-        if log.task_id is not None:
-            prefix = f"[Worker {log.worker_id} | Task {log.task_id} | {timestamp}]"
-        else:
-            prefix = f"[Worker {log.worker_id} | {timestamp}]"
-        if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
-            logger.log(log.level, "%s - %s", prefix, log.msg)
-            last_print = _getnow()
+    with open("log.txt", "a") as f:
+        for msg in log_q:
+            log = msg.data
+            timestamp = log.time.strftime("%Y-%m-%d %H:%M:%S")
+            if log.task_id is not None:
+                prefix = f"[Worker {log.worker_id} | Task {log.task_id} | {timestamp}]"
+            else:
+                prefix = f"[Worker {log.worker_id} | {timestamp}]"
+            if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
+                logger.log(log.level, "%s - %s", prefix, log.msg)
+                f.write(f"{prefix} - {log.msg}\n")
+                last_print = _getnow()
 
 
 class IResolver(ABC):
@@ -135,7 +138,7 @@ class IResolver(ABC):
         pass
 
     @abstractmethod
-    def add(self, url: str, fname: str | None = None) -> int:
+    def add(self, url: str | None = None, fname: str | None = None) -> int:
         """Add a URL to be resolved and return its task ID."""
 
     @abstractmethod
@@ -179,7 +182,7 @@ class IResolver(ABC):
         """
 
     @abstractmethod
-    def add_wait(self, url, fname: str | None = None) -> OutData:
+    def add_wait(self, url: str | None = None, fname: str | None = None):
         """Adds a URL to be resolved and waits for its completion."""
 
 
@@ -216,6 +219,7 @@ class Resolver(IResolver):
         ]
         self.printer = qqabc.qq.run_thread(_worker_print, self.log_q)
         self.task_cnt = 0
+        self.saved_task_id = {}
 
     def __enter__(self) -> Self:
         return self
@@ -243,11 +247,8 @@ class Resolver(IResolver):
     ) -> Generator[IO]:
         filepath = str(filepath)
         outd = None
-        with open(filepath, "rb") as f:
-            url = self._solve_url(f)
-            if url is not None:
-                with suppress(DataDeletedError):
-                    outd = self.add_wait(url, fname=filepath)
+        with suppress(DataDeletedError, InvalidUrlError):
+            outd = self.add_wait(fname=filepath)
         if outd is None:
             with open(filepath, mode) as f:
                 yield f
@@ -258,15 +259,22 @@ class Resolver(IResolver):
             else:
                 yield io.StringIO(outd.data.read().decode("utf-8"))
 
-    def add_wait(self, url, fname: str | None = None):
-        task_id = self.add(url, fname=fname)
+    def add_wait(self, url: str | None = None, fname: str | None = None):
+        if not (task_id := self.saved_task_id.get((url, str(fname)))):
+            task_id = self.add(url, fname=fname)
         return self.wait(task_id)
 
-    def add(self, url: str, fname: str | None = None) -> int:
-        surl = self._solve_url(url)
+    def add(self, url: str | None = None, fname: str | None = None) -> int:
+        if url is None:
+            with open(fname, "rb") as f:
+                surl = self._solve_url(f)
+        else:
+            surl = self._solve_url(url)
+        surl = surl or url
         if surl is None:
-            surl = url
+            raise InvalidUrlError("Either url or fname must be provided.")
         task_id = self._get_task_id()
+        self.saved_task_id[(url, str(fname))] = task_id
         indata = InData(task_id=task_id, url=surl, fpath=fname)
         self.storage.register(indata)
         self.input_q.put(indata)
