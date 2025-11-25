@@ -305,9 +305,7 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
     tmpdir = Path(tmpdir)
 
-    httpx_mock.add_response(
-        url="https://test_url.py",
-        content=dedent("""
+    content = dedent("""
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -317,9 +315,39 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
         def get_grammars():
             return [TestUrlGrammar()]
-        """),
+        """)
+    httpx_mock.add_response(
+        url="https://test_url.py",
+        content=content,
     )
-    with resolve(plugins=[Plugin("https://test_url.py", cache_dir=tmpdir)]) as _:
+    httpx_mock.add_response(  # should be called twice
+        url="https://test_url.py",
+        content=content,
+    )
+    with resolve(
+        plugins=[Plugin("https://test_url.py", cache_dir=tmpdir, rm_cache=True)]
+    ) as _:
+        pass
+    with resolve(
+        plugins=[Plugin("https://test_url.py", cache_dir=tmpdir, rm_cache=True)]
+    ) as _:
         pass
     assert tmpdir.exists()
     assert any(tmpdir.iterdir())
+
+
+def test_resolver_factory():
+    """Test the resolve factory function."""
+    from qqabc.rurl import ResolverFactory
+
+    resolve = ResolverFactory(
+        num_workers=2,
+        cache_size=1024 * 1024,
+    )
+    with resolve() as resolver:
+        assert resolver._num_workers == 2  # noqa: SLF001
+        assert len(resolver.grammars) == 1
+
+    resolve = ResolverFactory()
+    with resolve() as resolver:
+        assert resolver._num_workers == 4  # noqa: SLF001
