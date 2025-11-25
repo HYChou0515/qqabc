@@ -493,9 +493,7 @@ class ResolverFactory:
         plugins = config.get("plugins")
 
         storage: IStorage = Storage(cached_size=cache_size)
-        grammars: list[IUrlGrammar] = (
-            grammars if grammars is not None else [BasicUrlGrammar()]
-        )
+        grammars: list[IUrlGrammar] = grammars or []
         _plugins = []
         if plugins is not None:
             for p in plugins:
@@ -514,7 +512,7 @@ class ResolverFactory:
             num_workers,
             storage=storage,
             worker_factory=worker if worker is not None else DefaultWorker,
-            grammars=grammars,
+            grammars=grammars if grammars else [BasicUrlGrammar()],
         )
 
 

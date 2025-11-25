@@ -335,6 +335,7 @@ def test_resolver_factory():
     )
     with resolve() as resolver:
         assert resolver._num_workers == 2  # noqa: SLF001
+        assert len(resolver.grammars) == 1
 
     resolve = ResolverFactory()
     with resolve() as resolver:
