@@ -323,3 +323,19 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
         pass
     assert tmpdir.exists()
     assert any(tmpdir.iterdir())
+
+
+def test_resolver_factory():
+    """Test the resolve factory function."""
+    from qqabc.rurl import ResolverFactory
+
+    resolve = ResolverFactory(
+        num_workers=2,
+        cache_size=1024 * 1024,
+    )
+    with resolve() as resolver:
+        assert resolver._num_workers == 2  # noqa: SLF001
+
+    resolve = ResolverFactory()
+    with resolve() as resolver:
+        assert resolver._num_workers == 4  # noqa: SLF001
