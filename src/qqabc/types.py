@@ -88,6 +88,11 @@ class InvalidTaskError(ValueError):
         super().__init__(f"Invalid task_id: {task_id}")
 
 
+class InvalidUrlError(ValueError):
+    def __init__(self, url: str):
+        super().__init__(f"Invalid URL: {url}")
+
+
 class IStorage(ABC):
     @abstractmethod
     def register(self, indata: InData):

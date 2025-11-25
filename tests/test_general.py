@@ -310,7 +310,7 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
                 if content.startswith("test://"):
-                    return "https://picsum.photos/400"
+                    return "https://picsum.photos/200"
                 return None
 
         def get_grammars():
@@ -351,3 +351,23 @@ def test_resolver_factory():
     resolve = ResolverFactory()
     with resolve() as resolver:
         assert resolver._num_workers == 4  # noqa: SLF001
+
+
+def test_add_should_resolve(tmpdir: Path):
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    tmpdir = Path(tmpdir)
+
+    class CustomUrlGrammar(BasicUrlGrammar):
+        def main_rule(self, content: str) -> str | None:
+            if content.startswith("custom://"):
+                return "https://picsum.photos/300"
+            return None
+
+    resolve = ResolverFactory(
+        grammars=[CustomUrlGrammar()],
+    )
+    with resolve() as resolver:
+        data = resolver.add_wait("custom://example/resource").data
+        assert data.seek(0, 2) > 1024

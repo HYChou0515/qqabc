@@ -10,7 +10,7 @@ import sys
 import traceback
 import urllib.request
 from abc import ABC, abstractmethod
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, contextmanager, suppress
 from dataclasses import dataclass
 from functools import partial
 from logging import ERROR, INFO, getLogger
@@ -228,6 +228,15 @@ class Resolver(IResolver):
         self.task_cnt += 1
         return self.task_cnt
 
+    def _solve_url(self, url: str | IO[bytes]) -> str | None:
+        bio = io.BytesIO(url.encode("utf-8")) if isinstance(url, str) else url
+        for grammar in self.grammars:
+            bio.seek(0)
+            url_ = grammar.parse_url(bio)
+            if url_ is not None:
+                return url_
+        return None
+
     @contextmanager
     def open(
         self, filepath: str | Path, mode: Literal["r", "rb"] = "r"
@@ -235,15 +244,10 @@ class Resolver(IResolver):
         filepath = str(filepath)
         outd = None
         with open(filepath, "rb") as f:
-            try:
-                for grammar in self.grammars:
-                    f.seek(0)
-                    url = grammar.parse_url(f)
-                    if url is not None:
-                        outd = self.add_wait(url, fname=filepath)
-                        break
-            except DataDeletedError:
-                pass
+            url = self._solve_url(f)
+            if url is not None:
+                with suppress(DataDeletedError):
+                    outd = self.add_wait(url, fname=filepath)
         if outd is None:
             with open(filepath, mode) as f:
                 yield f
@@ -259,8 +263,11 @@ class Resolver(IResolver):
         return self.wait(task_id)
 
     def add(self, url: str, fname: str | None = None) -> int:
+        surl = self._solve_url(url)
+        if surl is None:
+            surl = url
         task_id = self._get_task_id()
-        indata = InData(task_id=task_id, url=url, fpath=fname)
+        indata = InData(task_id=task_id, url=surl, fpath=fname)
         self.storage.register(indata)
         self.input_q.put(indata)
         return task_id
