@@ -305,9 +305,7 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
     tmpdir = Path(tmpdir)
 
-    httpx_mock.add_response(
-        url="https://test_url.py",
-        content=dedent("""
+    content = dedent("""
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -317,9 +315,22 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
         def get_grammars():
             return [TestUrlGrammar()]
-        """),
+        """)
+    httpx_mock.add_response(
+        url="https://test_url.py",
+        content=content,
     )
-    with resolve(plugins=[Plugin("https://test_url.py", cache_dir=tmpdir)]) as _:
+    httpx_mock.add_response(  # should be called twice
+        url="https://test_url.py",
+        content=content,
+    )
+    with resolve(
+        plugins=[Plugin("https://test_url.py", cache_dir=tmpdir, rm_cache=True)]
+    ) as _:
+        pass
+    with resolve(
+        plugins=[Plugin("https://test_url.py", cache_dir=tmpdir, rm_cache=True)]
+    ) as _:
         pass
     assert tmpdir.exists()
     assert any(tmpdir.iterdir())

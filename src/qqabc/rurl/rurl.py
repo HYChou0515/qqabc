@@ -6,7 +6,6 @@ import importlib.util
 import io
 import os
 import re
-import shutil
 import sys
 import traceback
 import urllib.request
@@ -320,15 +319,11 @@ class Plugin:
     rm_cache: bool = False
 
 
-def get_grammar_cache_dir(
-    *, cache_dir: Path | None = None, rm_cache: bool = False
-) -> Path:
+def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
     """返回緩存目錄，遵守 XDG config standard"""
     if cache_dir is None:
         xdg_config_home = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
         cache_dir = Path(xdg_config_home) / "qqabc" / "grammar_cache"
-    if rm_cache and cache_dir.exists():
-        shutil.rmtree(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
@@ -394,15 +389,16 @@ def load_remote_plugin(
     """
     url = plugin.url
     httpx_options = plugin.httpx_options
-    cache_dir = get_grammar_cache_dir(
-        cache_dir=plugin.cache_dir, rm_cache=plugin.rm_cache
-    )
+    cache_dir = get_grammar_cache_dir(cache_dir=plugin.cache_dir)
     orig_filename = url.split("/")[-1]
     safe_filename = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", orig_filename)  # 非法字元換成 "_"
     url_hash = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]  # noqa: S324
     local_filename = f"{safe_filename}_{url_hash}.py"
 
     local_path = cache_dir / local_filename
+    if plugin.rm_cache and local_path.exists():
+        logger.info("Removing cached plugin: %s", local_path)
+        local_path.unlink()
 
     # 如果本地不存在，下載
     if not local_path.exists():
