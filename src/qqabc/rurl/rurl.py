@@ -111,18 +111,16 @@ def _getnow():
 
 def _worker_print(log_q: qqabc.qq.Q[LogData], min_interval: float = 0.1):
     last_print = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
-    with open("log.txt", "a") as f:
-        for msg in log_q:
-            log = msg.data
-            timestamp = log.time.strftime("%Y-%m-%d %H:%M:%S")
-            if log.task_id is not None:
-                prefix = f"[Worker {log.worker_id} | Task {log.task_id} | {timestamp}]"
-            else:
-                prefix = f"[Worker {log.worker_id} | {timestamp}]"
-            if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
-                logger.log(log.level, "%s - %s", prefix, log.msg)
-                f.write(f"{prefix} - {log.msg}\n")
-                last_print = _getnow()
+    for msg in log_q:
+        log = msg.data
+        timestamp = log.time.strftime("%Y-%m-%d %H:%M:%S")
+        if log.task_id is not None:
+            prefix = f"[Worker {log.worker_id} | Task {log.task_id} | {timestamp}]"
+        else:
+            prefix = f"[Worker {log.worker_id} | {timestamp}]"
+        if log.must or (_getnow() - last_print).total_seconds() >= min_interval:
+            logger.log(log.level, "%s - %s", prefix, log.msg)
+            last_print = _getnow()
 
 
 class IResolver(ABC):
