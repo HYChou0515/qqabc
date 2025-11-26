@@ -428,3 +428,15 @@ def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
             resolver.add(fname=path, on_err="none")
         for fp in resolver.iter_open():
             assert fp.seek(0, 2) == 1500
+
+    add_response("e")
+    add_response("f")
+    import time
+
+    with resolve(cache_size=1) as resolver:
+        for path in tmpdir.glob("*.txt"):
+            resolver.add(fname=path, on_err="none")
+        time.sleep(1)  # wait for all downloads to finish
+        #  issue #11 will fail in this case
+        for fp in resolver.iter_open():
+            assert fp.seek(0, 2) == 1500
