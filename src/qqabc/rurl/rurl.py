@@ -142,6 +142,10 @@ class IResolver(ABC):
         """Add a URL to be resolved and return its task ID."""
 
     @abstractmethod
+    def solve_url(self, url: str | IO[bytes]) -> str | None:
+        """Solve the URL from a string or file-like object using the registered grammars."""
+
+    @abstractmethod
     def wait(self, task_id: int) -> OutData:
         """Wait for the completion of a task and return its output data."""
 
@@ -261,7 +265,7 @@ class Resolver(IResolver):
         self.task_cnt += 1
         return self.task_cnt
 
-    def _solve_url(self, url: str | IO[bytes]) -> str | None:
+    def solve_url(self, url: str | IO[bytes]) -> str | None:
         bio = io.BytesIO(url.encode("utf-8")) if isinstance(url, str) else url
         for grammar in self.grammars:
             bio.seek(0)
@@ -315,9 +319,9 @@ class Resolver(IResolver):
     ) -> int | None:
         if url is None:
             with open(fname, "rb") as f:
-                surl = self._solve_url(f)
+                surl = self.solve_url(f)
         else:
-            surl = self._solve_url(url)
+            surl = self.solve_url(url)
         surl = surl or url
         if surl is None:
             if on_err == "raise":
