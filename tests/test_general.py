@@ -32,7 +32,7 @@ def test_import_version():
     assert re.match(r"^v?\d+\.\d+\.\d+([.-]\w+)?$", __version__)
 
 
-def test_usage():
+def test_usage1():
     """測試add_wait基本功能
 
     測試使用add_wait方法來加入一個URL下載任務
@@ -42,6 +42,20 @@ def test_usage():
 
     url = get_url("rb")
     with resolve() as resolver:
+        od = resolver.add_wait(url)
+        assert od
+        b = od.data
+    assert b.seek(0, 2) > 1024
+
+
+def test_usage11():
+    """即便cache size設為0,
+    仍能使用add_wait方法下載資料
+    """
+    from qqabc.rurl import resolve
+
+    url = get_url("rb")
+    with resolve(cache_size=0) as resolver:
         od = resolver.add_wait(url)
         assert od
         b = od.data

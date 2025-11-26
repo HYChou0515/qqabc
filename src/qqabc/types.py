@@ -11,6 +11,15 @@ if TYPE_CHECKING:
     from io import BytesIO
 
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
+
+
 @dataclass
 class LogData:
     task_id: int | None
@@ -110,11 +119,11 @@ class IStorage(ABC):
         """
 
     @abstractmethod
-    def delete(self, task_id: int) -> None:
+    def __enter__(self) -> Self:
         pass
 
     @abstractmethod
-    def delete_all(self) -> None:
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
         pass
 
     @abstractmethod

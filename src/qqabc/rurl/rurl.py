@@ -253,11 +253,12 @@ class Resolver(IResolver):
         self.saved_task_id = {}
 
     def __enter__(self) -> Self:
+        self.storage.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
-        self.storage.delete_all()
+        self.storage.__exit__(exc_type, exc_value, traceback)
 
     def _get_task_id(self):
         self.task_cnt += 1

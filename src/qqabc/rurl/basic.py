@@ -4,16 +4,24 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from io import BytesIO
-from typing import IO
+from pathlib import Path
+from typing import IO, TYPE_CHECKING
 
 from qqabc.types import (
-    DataDeletedError,
     InData,
     IStorage,
     IUrlGrammar,
     IWorker,
     OutData,
 )
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
 
 
 class Storage(IStorage):
@@ -23,8 +31,19 @@ class Storage(IStorage):
         self.outdata_storage: dict[int, OutData] = {}
         self.size = 0
         self.saved: set[int] = set()
+        self.tmpdir: tempfile.TemporaryDirectory
+
+    def __enter__(self) -> Self:
+        self.tmpdir = tempfile.TemporaryDirectory()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.delete_all()
+        self.tmpdir.cleanup()
 
     def register(self, indata: InData):
+        if indata.fpath is None:
+            indata.fpath = str(Path(self.tmpdir.name) / f"task_{indata.task_id}.dat")
         self.indata_storage[indata.task_id] = indata
 
     def save(self, task_id: int, outdata: OutData):
@@ -38,7 +57,7 @@ class Storage(IStorage):
             self.delete(oldest_task_id)
         self.saved.add(task_id)
         if self.size + this_size > self.cached_size:
-            indata = self.indata_storage.pop(task_id)
+            indata = self.indata_storage[task_id]
             self._save_to_disk(indata, outdata)
         else:
             self.size += this_size
@@ -46,24 +65,29 @@ class Storage(IStorage):
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
-            raise DataDeletedError(task_id)
+            with open(self.indata_storage[task_id].fpath, "rb") as fp:
+                b = BytesIO(fp.read())
+            return OutData(task_id=task_id, data=b)
         return self.outdata_storage[task_id]
 
-    def _save_to_disk(self, indata: InData, outdata: OutData):
-        if indata.fpath is not None:
-            with tempfile.NamedTemporaryFile(delete=False) as tmpf:
-                tmpf.write(outdata.data.getbuffer())
-            shutil.move(tmpf.name, indata.fpath)
-            self.size -= outdata.data.getbuffer().nbytes
+    def _save_to_disk(
+        self, indata: InData, outdata: OutData, *, save_if_no_path: bool = True
+    ):
+        if Path(indata.fpath).is_relative_to(self.tmpdir.name) and not save_if_no_path:
+            return
+        with tempfile.NamedTemporaryFile(delete=False) as tmpf:
+            tmpf.write(outdata.data.getbuffer())
+        shutil.move(tmpf.name, indata.fpath)
+        self.size -= outdata.data.getbuffer().nbytes
 
-    def delete(self, task_id: int) -> None:
+    def delete(self, task_id: int, *, save_if_no_path: bool = True) -> None:
         outdata = self.outdata_storage.pop(task_id)
-        indata = self.indata_storage.pop(task_id)
-        self._save_to_disk(indata, outdata)
+        indata = self.indata_storage[task_id]
+        self._save_to_disk(indata, outdata, save_if_no_path=save_if_no_path)
 
     def delete_all(self) -> None:
         for task_id in list(self.outdata_storage.keys()):
-            self.delete(task_id)
+            self.delete(task_id, save_if_no_path=False)
 
     def has(self, task_id: int) -> bool:
         return task_id in self.saved
