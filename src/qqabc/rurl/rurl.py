@@ -161,11 +161,11 @@ class IResolver(ABC):
         """
 
     @abstractmethod
-    def iter_completed(self, timeout: float | None = 0) -> Generator[OutData]:
+    def iter_completed(self) -> Generator[OutData]:
         """Generator that yields completed tasks as they finish.
 
-        The generator will yield completed tasks
-        until no more tasks are available within the timeout period.
+        The generator will yield completed tasks until no unfinished tasks.
+        This generator will block until at least one task is completed.
         """
 
     @overload
@@ -251,6 +251,7 @@ class Resolver(IResolver):
         ]
         self.printer = qqabc.qq.run_thread(_worker_print, self.log_q)
         self.task_cnt = 0
+        self.done_cnt = 0
         self.saved_task_id = {}
 
     def __enter__(self) -> Self:
@@ -297,7 +298,7 @@ class Resolver(IResolver):
         mode: Literal["r", "rb"] = "r",
         timeout: float | None = 0,
     ) -> Generator[IO]:
-        for msg in self._iter(timeout=timeout):
+        for msg in self._iter():
             outd = self._get_result(msg.data)
             outd.data.seek(0)
             if "b" in mode:
@@ -349,39 +350,38 @@ class Resolver(IResolver):
         self.log_q.stop(self.printer)
 
     def completed(self, timeout: float = 0):
-        for msg in self._iter(timeout=timeout):
+        for msg in self._iter():
             task_id = msg.data
             yield self._get_result(task_id)
 
-    def iter_completed(self, timeout: float | None = 0) -> Generator[OutData]:
-        for msg in self._iter(timeout=timeout):
+    def iter_completed(self) -> Generator[OutData]:
+        for msg in self._iter():
             task_id = msg.data
             yield self._get_result(task_id)
 
-    def _iter(self, timeout: float | None):
+    def _iter(self, timeout: float = 0.05):
         """Generator that yields completed tasks as they finish.
 
         If timeout is set to a float value, the generator will yield
         completed tasks until no more tasks are available within the timeout period.
         """
-        empty_ok = timeout is not None
-        if timeout is None:
-            timeout = 0.05
         while True:
             try:
-                yield from self.output_q.iter(timeout=timeout)
+                for od in self.output_q.iter(timeout=timeout):
+                    self.done_cnt += 1
+                    yield od
             except Empty:  # noqa: PERF203
                 if all(not worker.is_alive() for worker in self.workers):
                     raise WorkersDiedOutError from None
-                if empty_ok:
-                    break
+                if self.done_cnt >= self.task_cnt:
+                    return
 
     def wait(self, task_id: int):
         if not (0 < task_id <= self.task_cnt):
             raise InvalidTaskError(task_id)
         if self.storage.has(task_id):
             return self._get_result(task_id)
-        for msg in self._iter(timeout=None):
+        for msg in self._iter():
             completed_task_id = msg.data
             if completed_task_id == task_id:
                 return self._get_result(task_id)

@@ -56,10 +56,8 @@ dev-install:
 
 # 執行測試（排除基準測試）
 .PHONY: test
-test: check
+test: check coverage	
 	@echo "執行測試（排除基準測試）..."
-	uv run coverage run --branch -m pytest -m "not benchmark"
-	uv run coverage report -m
 
 # 執行基準測試
 .PHONY: test-benchmark
@@ -69,8 +67,10 @@ test-benchmark:
 
 # 執行測試並生成覆蓋率報告
 .PHONY: coverage
-coverage: test
+coverage:
 	@echo "生成覆蓋率報告..."
+	uv run coverage run --branch -m pytest -m "not benchmark"
+	uv run coverage report -m
 
 # 生成 HTML 覆蓋率報告
 .PHONY: cov-html
