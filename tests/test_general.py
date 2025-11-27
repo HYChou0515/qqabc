@@ -350,6 +350,52 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     assert any(tmpdir.iterdir())
 
 
+@pytest.mark.parametrize("use_pic", [True, False])
+def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None:
+    """Test that plugins are correctly imported."""
+    from qqabc.rurl import Plugin, resolve
+
+    tmpdir = Path(tmpdir)
+
+    content = dedent("""
+        from qqabc.rurl.basic import BasicUrlGrammar
+        class TestUrlGrammar(BasicUrlGrammar):
+            def main_rule(self, content: str) -> str | None:
+                if content.startswith("test://"):
+                    if self.context.get("use_pic"):
+                        return "https://picsum.photos/200"
+                    else:
+                        return "https://www.lipsum.com/feed/html"
+                return None
+
+        def get_grammars(context):
+            return [TestUrlGrammar(context)]
+        """)
+    httpx_mock.add_response(
+        url="https://test_url.py",
+        content=content,
+    )
+    if use_pic:
+        httpx_mock.add_response(
+            url="https://picsum.photos/200",
+        )
+    else:
+        httpx_mock.add_response(
+            url="https://www.lipsum.com/feed/html",
+        )
+    with resolve(
+        plugins=[
+            Plugin(
+                "https://test_url.py",
+                cache_dir=tmpdir,
+                rm_cache=True,
+                context={"use_pic": use_pic},
+            )
+        ],
+    ) as resolver:
+        resolver.add_wait("test://example")
+
+
 def test_resolver_factory():
     """Test the resolve factory function."""
     from qqabc.rurl import ResolverFactory

@@ -121,7 +121,8 @@ class BasicUrlGrammar(IUrlGrammar):
     一般來說, 使用者可以繼承此類別並覆寫main_rule方法來實作自訂的URL解析規則。
     """
 
-    def __init__(self):
+    def __init__(self, context: dict | None = None):
+        self.context = context or {}
         self.url_min = 5
         self.url_max = 512
 

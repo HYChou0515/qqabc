@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, contextmanager, suppress
 from dataclasses import dataclass
 from functools import partial
+from inspect import signature
 from logging import ERROR, INFO, getLogger
 from pathlib import Path
 from queue import Empty
@@ -393,6 +394,7 @@ class Plugin:
     cache_dir: Path | None = None
     httpx_options: dict | None = None
     rm_cache: bool = False
+    context: dict | None = None
 
 
 def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
@@ -402,6 +404,30 @@ def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
         cache_dir = Path(xdg_config_home) / "qqabc" / "grammar_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
+
+
+def _download_plugin_file(
+    url: str,
+    local_path: Path,
+    httpx_options: dict | None = None,
+):
+    """下載 plugin Python 檔案到指定路徑"""
+    try:
+        import httpx  # noqa: PLC0415
+
+        client_args = httpx_options if httpx_options is not None else {}
+        with httpx.Client(**client_args) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+    except ImportError:
+        logger.info("httpx not available, falling back to urllib")
+        if httpx_options:
+            logger.warning(
+                "httpx_options provided but httpx is not installed; ignoring options."
+            )
+        urllib.request.urlretrieve(url, local_path)  # noqa: S310
 
 
 def load_remote_plugin(
@@ -478,23 +504,7 @@ def load_remote_plugin(
 
     # 如果本地不存在，下載
     if not local_path.exists():
-        logger.info("Downloading plugin from %s -> %s", url, local_path)
-        try:
-            import httpx  # noqa: PLC0415
-
-            client_args = httpx_options if httpx_options is not None else {}
-            with httpx.Client(**client_args) as client:
-                response = client.get(url)
-                response.raise_for_status()
-                with open(local_path, "wb") as f:
-                    f.write(response.content)
-        except ImportError:
-            logger.info("httpx not available, falling back to urllib")
-            if httpx_options:
-                logger.warning(
-                    "httpx_options provided but httpx is not installed; ignoring options."
-                )
-            urllib.request.urlretrieve(url, local_path)  # noqa: S310
+        _download_plugin_file(url, local_path, httpx_options=httpx_options)
     else:
         logger.info("Using cached plugin: %s", local_path)
 
@@ -514,7 +524,11 @@ def load_remote_plugin(
         logger.warning("Plugin module %s must define get_grammars()", orig_filename)
         grammars = []
     else:
-        grammars = get_grammars_func()
+        sig = signature(get_grammars_func)
+        if len(sig.parameters) == 0:
+            grammars = get_grammars_func()
+        else:
+            grammars = get_grammars_func(plugin.context or {})
 
     # 呼叫 worker_factory()
     get_worker_factory_func = getattr(module, "get_worker_factory_func", None)
@@ -524,7 +538,11 @@ def load_remote_plugin(
         )
         worker_factory = None
     else:
-        worker_factory = get_worker_factory_func()
+        sig = signature(get_worker_factory_func)
+        if len(sig.parameters) == 0:
+            worker_factory = get_worker_factory_func()
+        else:
+            worker_factory = get_worker_factory_func(plugin.context or {})
 
     return worker_factory, grammars or []
 
