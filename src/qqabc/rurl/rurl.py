@@ -38,12 +38,12 @@ from qqabc.types import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from typing_extensions import Self
+    from typing_extensions import Self, Unpack
 else:
     try:
-        from typing import Self
+        from typing import Self, Unpack
     except ImportError:
-        from typing_extensions import Self
+        from typing_extensions import Self, Unpack
 
 
 logger = getLogger(__name__)
@@ -388,14 +388,31 @@ class Resolver(IResolver):
         raise QQBugError("Unreachable code reached.")
 
 
+class PluginOptions(TypedDict, total=False):
+    cache_dir: Path | None
+    httpx_options: dict | None
+    rm_cache: bool
+    context: dict | None
+    download_fn: Callable[[str, Path], bytes] | None
+
+
 @dataclass
 class Plugin:
     url: str
     cache_dir: Path | None = None
-    httpx_options: dict | None = None  # deprecated
+    httpx_options: dict | None = None
     rm_cache: bool = False
     context: dict | None = None
     download_fn: Callable[[str, Path], bytes] | None = None
+
+
+class ResolverConfig(TypedDict, total=False):
+    num_workers: int
+    cache_size: int
+    worker: type[IWorker] | Callable[[], IWorker] | None
+    grammars: list[IUrlGrammar] | None
+    plugins: list[Plugin] | list[str] | None
+    plugin_options: PluginOptions | None
 
 
 def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
@@ -411,7 +428,7 @@ def _download_plugin_file(
     url: str,
     local_path: Path,
     httpx_options: dict | None = None,
-    download_fn: Callable[[str, Path], bytes] | None = None
+    download_fn: Callable[[str, Path], bytes] | None = None,
 ):
     """下載 plugin Python 檔案到指定路徑"""
     if download_fn is not None:
@@ -554,33 +571,26 @@ def load_remote_plugin(
     return worker_factory, grammars or []
 
 
-class ResolverConfig(TypedDict, total=False):
-    num_workers: int
-    cache_size: int
-    worker: type[IWorker] | Callable[[], IWorker] | None
-    grammars: list[IUrlGrammar] | None
-    plugins: list[Plugin] | list[str] | None
-
-
 _DEFAULT_RESOLVER_CONFIG: ResolverConfig = {
     "num_workers": 4,
     "cache_size": 1 << 20,
     "worker": None,
     "grammars": None,
     "plugins": None,
+    "plugin_options": None,
 }
 
 
 class ResolverFactory:
     def __init__(
         self,
-        **kwargs: ResolverConfig,
+        **kwargs: Unpack[ResolverConfig],
     ):
         self.config = _DEFAULT_RESOLVER_CONFIG | kwargs
 
     def __call__(
         self,
-        **kwargs: ResolverConfig,
+        **kwargs: Unpack[ResolverConfig],
     ) -> IResolver:
         config = self.config | kwargs
         num_workers = config.get("num_workers")
@@ -588,6 +598,7 @@ class ResolverFactory:
         worker = config.get("worker")
         grammars = config.get("grammars")
         plugins = config.get("plugins")
+        plugin_options = config.get("plugin_options") or {}
 
         storage: IStorage = Storage(cached_size=cache_size)
         grammars: list[IUrlGrammar] = grammars or []
@@ -595,8 +606,11 @@ class ResolverFactory:
         if plugins is not None:
             for p in plugins:
                 if isinstance(p, str):
-                    _plugins.append(Plugin(url=p))
+                    _plugins.append(Plugin(url=p, **plugin_options))
                 else:
+                    for k, v in plugin_options.items():
+                        if getattr(p, k) is None:
+                            setattr(p, k, v)
                     _plugins.append(p)
         for p in _plugins:
             worker_factory, remote_grammars = load_remote_plugin(p)
