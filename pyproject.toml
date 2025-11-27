@@ -140,6 +140,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
+    "ARG001", # Unused function argument:
     "SIM117", # Use a single `with` statement with multiple contexts instead of nested `with` statements
     "ARG002",  # Unused method argument
     "PTH",

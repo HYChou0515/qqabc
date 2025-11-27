@@ -396,6 +396,48 @@ def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None
         resolver.add_wait("test://example")
 
 
+def test_plugins3(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
+    """Test that plugins are correctly imported."""
+    import httpx
+
+    from qqabc.rurl import Plugin, resolve
+
+    tmpdir = Path(tmpdir)
+
+    content = dedent("""
+        from qqabc.rurl.basic import BasicUrlGrammar
+        class TestUrlGrammar(BasicUrlGrammar):
+            def main_rule(self, content: str) -> str | None:
+                if content.startswith("test://"):
+                    return "https://picsum.photos/200"
+                return None
+
+        def get_grammars(context):
+            return [TestUrlGrammar(context)]
+        """)
+
+    def download_fn(url: str, local_path: Path) -> None:
+        with open(local_path, "wb") as f:
+            resp = httpx.get("https://hoo.py")
+            f.write(resp.content)
+
+    httpx_mock.add_response(
+        url="https://hoo.py",
+        content=content,
+    )
+    with resolve(
+        plugins=[
+            Plugin(
+                "https://test_url.py",
+                cache_dir=tmpdir,
+                rm_cache=True,
+                download_fn=download_fn,
+            )
+        ],
+    ) as _:
+        pass
+
+
 def test_resolver_factory():
     """Test the resolve factory function."""
     from qqabc.rurl import ResolverFactory

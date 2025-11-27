@@ -392,9 +392,10 @@ class Resolver(IResolver):
 class Plugin:
     url: str
     cache_dir: Path | None = None
-    httpx_options: dict | None = None
+    httpx_options: dict | None = None  # deprecated
     rm_cache: bool = False
     context: dict | None = None
+    download_fn: Callable[[str, Path], bytes] | None = None
 
 
 def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
@@ -410,8 +411,12 @@ def _download_plugin_file(
     url: str,
     local_path: Path,
     httpx_options: dict | None = None,
+    download_fn: Callable[[str, Path], bytes] | None = None
 ):
     """下載 plugin Python 檔案到指定路徑"""
+    if download_fn is not None:
+        download_fn(url, local_path)
+        return
     try:
         import httpx  # noqa: PLC0415
 
@@ -504,7 +509,9 @@ def load_remote_plugin(
 
     # 如果本地不存在，下載
     if not local_path.exists():
-        _download_plugin_file(url, local_path, httpx_options=httpx_options)
+        _download_plugin_file(
+            url, local_path, httpx_options=httpx_options, download_fn=plugin.download_fn
+        )
     else:
         logger.info("Using cached plugin: %s", local_path)
 
