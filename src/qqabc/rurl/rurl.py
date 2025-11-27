@@ -153,19 +153,11 @@ class IResolver(ABC):
         """Iterator that yields completed tasks as they finish, then closes the resolver."""
 
     @abstractmethod
-    def completed(self, timeout: float = 0) -> Generator[OutData]:
+    def completed(self) -> Generator[OutData]:
         """Generator that yields completed tasks as they finish.
 
         The generator will yield completed tasks
-        until no more tasks are available within the timeout period.
-        """
-
-    @abstractmethod
-    def iter_completed(self) -> Generator[OutData]:
-        """Generator that yields completed tasks as they finish.
-
-        The generator will yield completed tasks until no unfinished tasks.
-        This generator will block until at least one task is completed.
+        until no more tasks to be done.
         """
 
     @overload
@@ -177,13 +169,11 @@ class IResolver(ABC):
     def iter_open(
         self,
         mode: Literal["r", "rb"] = "r",
-        timeout: float | None = None,
     ) -> Generator[IO]:
         """Iterator that opens resolved URLs as file-like objects.
 
         Args:
             mode: The mode in which to open the file-like objects (e.g., 'r', 'rb').
-            timeout: The timeout period to wait for completed tasks. If None, waits indefinitely.
 
         Yields:
             File-like objects containing the resolved URL data.
@@ -296,7 +286,6 @@ class Resolver(IResolver):
     def iter_open(
         self,
         mode: Literal["r", "rb"] = "r",
-        timeout: float | None = 0,
     ) -> Generator[IO]:
         for msg in self._iter():
             outd = self._get_result(msg.data)
@@ -349,12 +338,7 @@ class Resolver(IResolver):
         self.output_q.end()
         self.log_q.stop(self.printer)
 
-    def completed(self, timeout: float = 0):
-        for msg in self._iter():
-            task_id = msg.data
-            yield self._get_result(task_id)
-
-    def iter_completed(self) -> Generator[OutData]:
+    def completed(self):
         for msg in self._iter():
             task_id = msg.data
             yield self._get_result(task_id)

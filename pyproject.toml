@@ -78,6 +78,9 @@ exclude_also = [
     'QQBugError',
 ]
 [tool.coverage.run]
+include = [
+    "src/*",
+]
 omit = [
     "tests/*",
 ]

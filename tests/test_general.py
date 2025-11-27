@@ -96,7 +96,7 @@ def test_usage21():
         for _ in range(2):
             todos.pop()
             tasks.add(resolver.add(url))
-        for task in resolver.completed(timeout=5):
+        for task in resolver.completed():
             if todos:
                 todos.pop()
                 tasks.add(resolver.add(url))
