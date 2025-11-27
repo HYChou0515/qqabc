@@ -106,6 +106,24 @@ def test_usage21():
         assert len(tasks) == 0
 
 
+def test_usage22():
+    from qqabc.rurl import resolve
+
+    url = get_url("rb")
+    dones = set()
+    with resolve() as resolver:
+        todos = set(range(4))
+        for _ in range(2):
+            todos.pop()
+            resolver.add(url)
+        for task_id in resolver.iter_completed_tasks():
+            dones.add(task_id)
+            if todos:
+                todos.pop()
+                resolver.add(url)
+    assert len(dones) == 4
+
+
 def test_usage3():
     """測試add + wait的使用情境
 

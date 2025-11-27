@@ -160,6 +160,10 @@ class IResolver(ABC):
         until no more tasks to be done.
         """
 
+    @abstractmethod
+    def iter_completed_tasks(self) -> Generator[int]:
+        """Generator that yields completed task IDs as they finish."""
+
     @overload
     def iter_open(self, mode: Literal["rb"]) -> Generator[IO[bytes]]: ...
     @overload
@@ -342,6 +346,10 @@ class Resolver(IResolver):
         for msg in self._iter():
             task_id = msg.data
             yield self._get_result(task_id)
+
+    def iter_completed_tasks(self) -> Generator[int]:
+        for msg in self._iter():
+            yield msg.data
 
     def _iter(self, timeout: float = 0.05):
         """Generator that yields completed tasks as they finish.
