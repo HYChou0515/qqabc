@@ -34,6 +34,7 @@ class LogData:
 class InData:
     task_id: int
     url: str
+    job_chance: int
     fpath: str | None = None
 
 
@@ -41,6 +42,7 @@ class InData:
 class OutData:
     task_id: int
     data: BytesIO
+    err: Exception | None = None
 
 
 class IWorker(ABC):

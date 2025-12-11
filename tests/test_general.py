@@ -7,6 +7,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Literal
 
 import pytest
+from httpx import HTTPStatusError
 
 if TYPE_CHECKING:
     from pytest_httpx import HTTPXMock
@@ -237,7 +238,9 @@ def test_usage61():
             return 4.0
 
     url = get_url("rb")
-    with resolve(num_workers=4, worker=Worker) as resolver:
+    with resolve(
+        job_chance=4, worker_chance=1, num_workers=4, worker=Worker
+    ) as resolver:
         resolver.add_wait(url)
 
 
@@ -527,6 +530,56 @@ def test_add_should_resolve(tmpdir: Path):
     with resolve() as resolver:
         data = resolver.add_wait("custom://example/resource").data
         assert data.seek(0, 2) > 1024
+
+
+def test_retry1(httpx_mock: HTTPXMock):
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    class CustomUrlGrammar(BasicUrlGrammar):
+        def main_rule(self, content: str) -> str | None:
+            return "https://example.com/resource"
+
+    httpx_mock.add_response(
+        url="https://example.com/resource",
+        status_code=500,
+    )
+    httpx_mock.add_response(
+        url="https://example.com/resource",
+        content=bytes("x" * 1500, "utf-8"),
+    )
+
+    resolve = ResolverFactory(
+        grammars=[CustomUrlGrammar()],
+    )
+    with resolve(job_chance=2) as resolver:
+        data = resolver.add_wait("custom://example/resource").data
+        assert data.seek(0, 2) == 1500
+
+
+def test_retry2(httpx_mock: HTTPXMock):
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    class CustomUrlGrammar(BasicUrlGrammar):
+        def main_rule(self, content: str) -> str | None:
+            return "https://example.com/resource"
+
+    httpx_mock.add_response(
+        url="https://example.com/resource",
+        status_code=500,
+    )
+    httpx_mock.add_response(
+        url="https://example.com/resource",
+        status_code=500,
+    )
+
+    resolve = ResolverFactory(
+        grammars=[CustomUrlGrammar()],
+    )
+    with pytest.raises(HTTPStatusError):
+        with resolve(job_chance=2) as resolver:
+            resolver.add_wait("custom://example/resource")
 
 
 def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):

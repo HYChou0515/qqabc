@@ -97,6 +97,7 @@ select = [
     "ALL", # include all the rules, including new ones
 ]
 ignore = [
+    "PLR0913", # Too many arguments in function definition
     "RUF003", # Comment contains ambiguous
     "D417",# Missing argument descriptions in the docstring for `worker_sum`: `out`, `q`
     "BLE001", # Do not catch blind exception: `Exception`

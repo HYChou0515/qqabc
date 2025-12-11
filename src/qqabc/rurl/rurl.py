@@ -67,13 +67,14 @@ def _make_log(
     )
 
 
-def _worker_download(  # noqa: PLR0913
+def _worker_download(
     input_q: qqabc.qq.Q[InData],
     output_q: qqabc.qq.Q[int],
     log_q: qqabc.qq.Q[LogData],
     worker: IWorker,
     worker_id: int,
     storage: IStorage,
+    worker_chance: int,
 ):
     log_func = partial(_make_log, worker_id=worker_id, task_id=None)
     try:
@@ -91,9 +92,35 @@ def _worker_download(  # noqa: PLR0913
                     output_q.put(ind.task_id)
                     log_q.put(log_task_func("Finished"))
                 except Exception as e:
-                    log_q.put(log_task_func(f"Error: {e}", must=True, level=ERROR))
-                    input_q.put(msg)
-                    raise
+                    ind.job_chance -= 1
+                    worker_chance -= 1
+                    log_q.put(
+                        log_task_func(
+                            f"Error: {e}, job_chance={ind.job_chance}, {worker_chance=}",
+                            must=True,
+                            level=ERROR,
+                        )
+                    )
+                    if ind.job_chance > 0:
+                        input_q.put(msg)
+                    else:
+                        outd = OutData(task_id=ind.task_id, data=io.BytesIO(), err=e)
+                        storage.save(ind.task_id, outd)
+                        output_q.put(ind.task_id)
+                        log_q.put(
+                            log_task_func(
+                                "Failed, no more retries left", must=True, level=ERROR
+                            )
+                        )
+                    if worker_chance <= 0:
+                        log_q.put(
+                            log_func(
+                                "Worker chance exhausted, stopping worker",
+                                must=True,
+                                level=ERROR,
+                            )
+                        )
+                        raise
     except Empty:
         log_q.put(
             log_func(
@@ -220,7 +247,10 @@ class Resolver(IResolver):
         storage: IStorage,
         worker_factory: Callable[[], IWorker],
         grammars: list[IUrlGrammar],
-    ):
+        job_chance: int,
+        worker_chance: int,
+        reraise: bool = True,
+    ) -> None:
         self._num_workers = num_workers
 
         input_q = qqabc.qq.Q[InData]("thread")
@@ -231,6 +261,8 @@ class Resolver(IResolver):
         self.log_q = log_q
         self.storage = storage
         self.grammars = grammars
+        self.job_chance = job_chance
+        self.reraise = reraise
         self.workers = [
             qqabc.qq.run_thread(
                 _worker_download,
@@ -240,6 +272,7 @@ class Resolver(IResolver):
                 worker_factory(),
                 w,
                 self.storage,
+                worker_chance=worker_chance,
             )
             for w in range(num_workers)
         ]
@@ -323,13 +356,20 @@ class Resolver(IResolver):
             return None
         task_id = self._get_task_id()
         self.saved_task_id[(url, str(fname))] = task_id
-        indata = InData(task_id=task_id, url=surl, fpath=fname)
+        indata = InData(
+            task_id=task_id, url=surl, fpath=fname, job_chance=self.job_chance
+        )
         self.storage.register(indata)
         self.input_q.put(indata)
         return task_id
 
     def _get_result(self, task_id: int):
-        return self.storage.load(task_id)
+        outd = self.storage.load(task_id)
+        if outd.err:
+            if self.reraise:
+                raise outd.err
+            logger.error("Task %d failed with error: %s", task_id, outd.err)
+        return outd
 
     def iter_and_close(self):
         self.close()
@@ -402,6 +442,8 @@ class ResolverConfig(TypedDict, total=False):
     num_workers: int
     cache_size: int
     worker: type[IWorker] | Callable[[], IWorker] | None
+    job_chance: int
+    worker_chance: int
     grammars: list[IUrlGrammar] | None
     plugins: list[Plugin] | list[str] | None
     plugin_options: PluginOptions | None
@@ -591,6 +633,8 @@ class ResolverFactory:
         grammars = config.get("grammars")
         plugins = config.get("plugins")
         plugin_options = config.get("plugin_options") or {}
+        job_chance = config.get("job_chance", 10)
+        worker_chance = config.get("worker_chance", 10)
 
         storage: IStorage = Storage(cached_size=cache_size)
         grammars: list[IUrlGrammar] = grammars or []
@@ -616,6 +660,8 @@ class ResolverFactory:
             storage=storage,
             worker_factory=worker if worker is not None else DefaultWorker,
             grammars=grammars if grammars else [BasicUrlGrammar()],
+            job_chance=job_chance,
+            worker_chance=worker_chance,
         )
 
 
