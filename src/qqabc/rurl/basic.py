@@ -29,6 +29,14 @@ else:
 _WAIT_STORAGE_SAVE_TIMEOUT = 5
 
 
+def _ensure_fpath(fpath: str | None, task_id: int) -> Path:
+    """將 fpath (str | None) 轉換為 Path，若為 None 則 raise ValueError."""
+    if fpath is None:  # pragma: no cover
+        msg = f"fpath for task_id {task_id} is None"
+        raise ValueError(msg)
+    return Path(fpath)
+
+
 class Storage(IStorage):
     def __init__(self, cached_size: int):
         self.cached_size = cached_size
@@ -75,11 +83,7 @@ class Storage(IStorage):
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
-            fpath_str = self.indata_storage[task_id].fpath
-            if fpath_str is None:  # pragma: no cover
-                msg = f"fpath for task_id {task_id} is None"
-                raise ValueError(msg)
-            fpath = Path(fpath_str)
+            fpath = _ensure_fpath(self.indata_storage[task_id].fpath, task_id)
             st = time.time()
             while (
                 time.time() - st
@@ -93,15 +97,13 @@ class Storage(IStorage):
     def _save_to_disk(
         self, indata: InData, outdata: OutData, *, save_if_no_path: bool = True
     ):
-        if indata.fpath is None:  # pragma: no cover
-            msg = f"fpath for task_id {indata.task_id} is None"
-            raise ValueError(msg)
-        if Path(indata.fpath).is_relative_to(self.tmpdir.name) and not save_if_no_path:
+        fpath = _ensure_fpath(indata.fpath, indata.task_id)
+        if fpath.is_relative_to(self.tmpdir.name) and not save_if_no_path:
             return
-        target_dir = str(Path(indata.fpath).parent)
+        target_dir = str(fpath.parent)
         with tempfile.NamedTemporaryFile(delete=False, dir=target_dir) as tmpf:
             tmpf.write(outdata.data.getbuffer())
-        shutil.move(tmpf.name, indata.fpath)
+        shutil.move(tmpf.name, fpath)
         self.size -= outdata.data.getbuffer().nbytes
 
     def delete(self, task_id: int, *, save_if_no_path: bool = True) -> None:

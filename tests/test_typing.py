@@ -11,7 +11,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Any, get_type_hints
 
 from qqabc.qq import Q, Worker
-from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage
+from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage, _ensure_fpath
 from qqabc.rurl.rurl import (
     IResolver,
     Plugin,
@@ -427,3 +427,26 @@ class TestTypeAnnotationsPresent:
     def test_iresolver_add_wait_has_return(self) -> None:
         sig = inspect.signature(IResolver.add_wait)
         assert sig.return_annotation is not inspect.Parameter.empty
+
+
+class TestEnsureFpath:
+    """測試 _ensure_fpath 工具函式。"""
+
+    def test_returns_path_from_str(self) -> None:
+        from pathlib import Path
+
+        result = _ensure_fpath("/tmp/test.dat", task_id=1)
+        assert isinstance(result, Path)
+        assert result == Path("/tmp/test.dat")
+
+    def test_returns_path_preserves_value(self) -> None:
+        from pathlib import Path
+
+        result = _ensure_fpath("relative/path/file.txt", task_id=42)
+        assert result == Path("relative/path/file.txt")
+
+    def test_raises_value_error_on_none(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError, match="fpath for task_id 99 is None"):
+            _ensure_fpath(None, task_id=99)
