@@ -174,7 +174,13 @@ class IResolver(ABC):
         pass
 
     @abstractmethod
-    def add(self, url: str | None = None, fname: str | None = None) -> int:
+    def add(
+        self,
+        url: str | None = None,
+        fname: str | Path | None = None,
+        *,
+        on_err: Literal["raise", "none"] = "raise",
+    ) -> int | None:
         """Add a URL to be resolved and return its task ID."""
 
     @abstractmethod
@@ -361,15 +367,19 @@ class Resolver(IResolver):
     def add(
         self,
         url: str | None = None,
-        fname: str | None = None,
+        fname: str | Path | None = None,
         *,
         on_err: Literal["raise", "none"] = "raise",
     ) -> int | None:
         if fname is not None:
-            existing = self.saved_task_id.get((url, str(fname)))
+            fname = str(fname)
+            existing = self.saved_task_id.get((url, fname))
             if existing is not None:
                 return existing
         if url is None:
+            if fname is None:  # pragma: no cover
+                msg = "Either url or fname must be provided."
+                raise InvalidUrlError(msg)
             with open(fname, "rb") as f:
                 surl = self.solve_url(f)
         else:
@@ -381,7 +391,7 @@ class Resolver(IResolver):
             return None
         task_id = self._get_task_id()
         if fname is not None:
-            self.saved_task_id[(url, str(fname))] = task_id
+            self.saved_task_id[(url, fname)] = task_id
         indata = InData(
             task_id=task_id, url=surl, fpath=fname, job_chance=self.job_chance
         )
@@ -451,7 +461,7 @@ class PluginOptions(TypedDict, total=False):
     httpx_options: dict[str, Any] | None
     rm_cache: bool
     context: dict[str, Any] | None
-    download_fn: Callable[[str, Path], bytes] | None
+    download_fn: Callable[[str, Path], None] | None
 
 
 @dataclass
@@ -461,7 +471,7 @@ class Plugin:
     httpx_options: dict[str, Any] | None = None
     rm_cache: bool = False
     context: dict[str, Any] | None = None
-    download_fn: Callable[[str, Path], bytes] | None = None
+    download_fn: Callable[[str, Path], None] | None = None
 
 
 class ResolverConfig(TypedDict, total=False):
@@ -488,7 +498,7 @@ def _download_plugin_file(
     url: str,
     local_path: Path,
     httpx_options: dict[str, Any] | None = None,
-    download_fn: Callable[[str, Path], bytes] | None = None,
+    download_fn: Callable[[str, Path], None] | None = None,
 ) -> None:
     """下載 plugin Python 檔案到指定路徑"""
     if download_fn is not None:
@@ -595,7 +605,7 @@ def load_remote_plugin(
     # 動態 import，使用唯一 module 名稱
     module_name = f"plugin_{url_hash}"
     spec = importlib.util.spec_from_file_location(module_name, local_path)
-    if spec.loader is None:
+    if spec is None or spec.loader is None:
         logger.warning("Cannot load plugin module from %s", local_path)
         return None, []
     module = importlib.util.module_from_spec(spec)
@@ -653,17 +663,17 @@ class ResolverFactory:
         **kwargs: Unpack[ResolverConfig],
     ) -> IResolver:
         config = self.config | kwargs
-        num_workers = config.get("num_workers")
-        cache_size = config.get("cache_size")
+        num_workers: int = config.get("num_workers", 4)
+        cache_size: int = config.get("cache_size", 1024 * 1024)
         worker = config.get("worker")
-        grammars = config.get("grammars")
+        grammars_cfg = config.get("grammars")
         plugins = config.get("plugins")
         plugin_options = config.get("plugin_options") or {}
-        job_chance = config.get("job_chance", 10)
-        worker_chance = config.get("worker_chance", 10)
+        job_chance: int = config.get("job_chance", 10)
+        worker_chance: int = config.get("worker_chance", 10)
 
         storage: IStorage = Storage(cached_size=cache_size)
-        grammars: list[IUrlGrammar] = grammars or []
+        grammars: list[IUrlGrammar] = grammars_cfg or []
         _plugins = []
         if plugins is not None:
             for p in plugins:

@@ -75,7 +75,11 @@ class Storage(IStorage):
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
-            fpath = Path(self.indata_storage[task_id].fpath)
+            fpath_str = self.indata_storage[task_id].fpath
+            if fpath_str is None:  # pragma: no cover
+                msg = f"fpath for task_id {task_id} is None"
+                raise ValueError(msg)
+            fpath = Path(fpath_str)
             st = time.time()
             while (
                 time.time() - st
@@ -89,6 +93,9 @@ class Storage(IStorage):
     def _save_to_disk(
         self, indata: InData, outdata: OutData, *, save_if_no_path: bool = True
     ):
+        if indata.fpath is None:  # pragma: no cover
+            msg = f"fpath for task_id {indata.task_id} is None"
+            raise ValueError(msg)
         if Path(indata.fpath).is_relative_to(self.tmpdir.name) and not save_if_no_path:
             return
         target_dir = str(Path(indata.fpath).parent)
