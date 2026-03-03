@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     import datetime as dt
     from contextlib import AbstractContextManager
     from io import BytesIO
+    from types import TracebackType
 
 
 if TYPE_CHECKING:
@@ -125,7 +126,12 @@ class IStorage(ABC):
         pass
 
     @abstractmethod
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         pass
 
     @abstractmethod
