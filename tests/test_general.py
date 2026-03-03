@@ -87,7 +87,7 @@ def test_iresolver_exit_is_abstract():
             pass
 
     with pytest.raises(TypeError, match="__exit__"):
-        _IncompleteResolver()
+        _IncompleteResolver()  # type: ignore[abstract]
 
 
 def test_usage1():
@@ -260,7 +260,7 @@ def test_usage6():
             raise RuntimeError("Failed to start worker")
 
         def resolve(self, indata: InData) -> OutData:
-            pass
+            raise NotImplementedError
 
     url = get_url("rb")
     with resolve(worker=BadWorker) as resolver, pytest.raises(WorkersDiedOutError):
@@ -410,11 +410,11 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
         """)
     httpx_mock.add_response(
         url="https://test_url.py",
-        content=content,
+        content=content.encode(),
     )
     httpx_mock.add_response(  # should be called twice
         url="https://test_url.py",
-        content=content,
+        content=content.encode(),
     )
     with resolve(
         plugins=[Plugin("https://test_url.py", cache_dir=tmpdir, rm_cache=True)]
@@ -451,7 +451,7 @@ def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None
         """)
     httpx_mock.add_response(
         url="https://test_url.py",
-        content=content,
+        content=content.encode(),
     )
     if use_pic:
         httpx_mock.add_response(
@@ -501,7 +501,7 @@ def test_plugins3(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
     httpx_mock.add_response(
         url="https://hoo.py",
-        content=content,
+        content=content.encode(),
     )
     with resolve(
         plugins=[
@@ -536,7 +536,7 @@ def test_plugins4(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
 
     httpx_mock.add_response(
         url="https://test_url.py",
-        content=content,
+        content=content.encode(),
     )
     with resolve(
         plugins=[
@@ -561,12 +561,12 @@ def test_resolver_factory():
         cache_size=1024 * 1024,
     )
     with resolve() as resolver:
-        assert resolver._num_workers == 2  # noqa: SLF001
-        assert len(resolver.grammars) == 1
+        assert resolver._num_workers == 2  # type: ignore[attr-defined]  # noqa: SLF001
+        assert len(resolver.grammars) == 1  # type: ignore[attr-defined]
 
     resolve = ResolverFactory()
     with resolve() as resolver:
-        assert resolver._num_workers == 4  # noqa: SLF001
+        assert resolver._num_workers == 4  # type: ignore[attr-defined]  # noqa: SLF001
 
 
 def test_add_should_resolve(tmpdir: Path):
@@ -585,7 +585,7 @@ def test_add_should_resolve(tmpdir: Path):
         grammars=[CustomUrlGrammar()],
     )
     with resolve() as resolver:
-        data = resolver.add_wait("custom://example/resource").data
+        data = resolver.add_wait("custom://example/resource").data  # type: ignore[union-attr]
         assert data.seek(0, 2) > 1024
 
 
@@ -610,7 +610,7 @@ def test_retry1(httpx_mock: HTTPXMock):
         grammars=[CustomUrlGrammar()],
     )
     with resolve(job_chance=2) as resolver:
-        data = resolver.add_wait("custom://example/resource").data
+        data = resolver.add_wait("custom://example/resource").data  # type: ignore[union-attr]
         assert data.seek(0, 2) == 1500
 
 
@@ -721,12 +721,13 @@ def test_add_resolved_fname(tmpdir: Path, httpx_mock: HTTPXMock):
         f.write("custom://example.com/resource")
 
     with resolve(cache_size=0) as resolver:
-        task_id1 = resolver.add(fname=tmpdir / "url.txt")
+        task_id1 = resolver.add(fname=str(tmpdir / "url.txt"))
+        assert task_id1 is not None
         od = resolver.wait(task_id1)
         assert od.data.seek(0, 2) > 0
 
         # 檔案已經被覆寫成下載的內容, 再次add同一個fname不應該fail
-        task_id2 = resolver.add(fname=tmpdir / "url.txt")
+        task_id2 = resolver.add(fname=str(tmpdir / "url.txt"))
         assert task_id2 == task_id1
 
 

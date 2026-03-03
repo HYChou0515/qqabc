@@ -17,7 +17,7 @@ from inspect import signature
 from logging import ERROR, INFO, getLogger
 from pathlib import Path
 from queue import Empty
-from typing import IO, TYPE_CHECKING, Generator, Literal, TypedDict, overload
+from typing import IO, TYPE_CHECKING, Any, Generator, Literal, TypedDict, overload
 
 import qqabc.qq
 from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage
@@ -134,7 +134,7 @@ def _worker_download(
         log_q.put(log_func(traceback.format_exc(), must=True, level=ERROR))
 
 
-def _getnow():
+def _getnow() -> dt.datetime:
     return dt.datetime.now(tz=dt.timezone.utc)
 
 
@@ -174,7 +174,13 @@ class IResolver(ABC):
         pass
 
     @abstractmethod
-    def add(self, url: str | None = None, fname: str | None = None) -> int:
+    def add(
+        self,
+        url: str | None = None,
+        fname: str | Path | None = None,
+        *,
+        on_err: Literal["raise", "none"] = "raise",
+    ) -> int | None:
         """Add a URL to be resolved and return its task ID."""
 
     @abstractmethod
@@ -210,7 +216,7 @@ class IResolver(ABC):
     def iter_open(
         self,
         mode: Literal["r", "rb"] = "r",
-    ) -> Generator[IO]:
+    ) -> Generator[IO[str] | IO[bytes]]:
         """Iterator that opens resolved URLs as file-like objects.
 
         Args:
@@ -232,7 +238,7 @@ class IResolver(ABC):
     @abstractmethod
     def open(
         self, filepath: str | Path, mode: Literal["r", "rb"] = "r"
-    ) -> AbstractContextManager[IO]:
+    ) -> AbstractContextManager[IO[str] | IO[bytes]]:
         """Open a file that may contain a URL, resolving it if necessary.
 
         If the file contains a URL, it will be resolved and the resulting data
@@ -245,7 +251,9 @@ class IResolver(ABC):
         """
 
     @abstractmethod
-    def add_wait(self, url: str | None = None, fname: str | None = None):
+    def add_wait(
+        self, url: str | None = None, fname: str | None = None
+    ) -> OutData | None:
         """Adds a URL to be resolved and waits for its completion."""
 
 
@@ -289,7 +297,7 @@ class Resolver(IResolver):
         self.printer = qqabc.qq.run_thread(_worker_print, self.log_q)
         self.task_cnt = 0
         self.done_cnt = 0
-        self.saved_task_id = {}
+        self.saved_task_id: dict[tuple[str | None, str], int] = {}
 
     def __enter__(self) -> Self:
         self.storage.__enter__()
@@ -304,7 +312,7 @@ class Resolver(IResolver):
         self.close()
         self.storage.__exit__(exc_type, exc_val, exc_tb)
 
-    def _get_task_id(self):
+    def _get_task_id(self) -> int:
         self.task_cnt += 1
         return self.task_cnt
 
@@ -320,7 +328,7 @@ class Resolver(IResolver):
     @contextmanager
     def open(
         self, filepath: str | Path, mode: Literal["r", "rb"] = "r"
-    ) -> Generator[IO]:
+    ) -> Generator[IO[str] | IO[bytes]]:
         filepath = str(filepath)
         outd = None
         with suppress(DataDeletedError, InvalidUrlError):
@@ -338,7 +346,7 @@ class Resolver(IResolver):
     def iter_open(
         self,
         mode: Literal["r", "rb"] = "r",
-    ) -> Generator[IO]:
+    ) -> Generator[IO[str] | IO[bytes], None, None]:
         for msg in self._iter():
             outd = self._get_result(msg.data)
             outd.data.seek(0)
@@ -347,7 +355,9 @@ class Resolver(IResolver):
             else:
                 yield io.StringIO(outd.data.read().decode("utf-8"))
 
-    def add_wait(self, url: str | None = None, fname: str | None = None):
+    def add_wait(
+        self, url: str | None = None, fname: str | None = None
+    ) -> OutData | None:
         if not (task_id := self.saved_task_id.get((url, str(fname)))):
             task_id = self.add(url, fname=fname, on_err="none")
         if task_id is None:
@@ -357,15 +367,19 @@ class Resolver(IResolver):
     def add(
         self,
         url: str | None = None,
-        fname: str | None = None,
+        fname: str | Path | None = None,
         *,
         on_err: Literal["raise", "none"] = "raise",
     ) -> int | None:
         if fname is not None:
-            existing = self.saved_task_id.get((url, str(fname)))
+            fname = str(fname)
+            existing = self.saved_task_id.get((url, fname))
             if existing is not None:
                 return existing
         if url is None:
+            if fname is None:  # pragma: no cover
+                msg = "Either url or fname must be provided."
+                raise InvalidUrlError(msg)
             with open(fname, "rb") as f:
                 surl = self.solve_url(f)
         else:
@@ -377,7 +391,7 @@ class Resolver(IResolver):
             return None
         task_id = self._get_task_id()
         if fname is not None:
-            self.saved_task_id[(url, str(fname))] = task_id
+            self.saved_task_id[(url, fname)] = task_id
         indata = InData(
             task_id=task_id, url=surl, fpath=fname, job_chance=self.job_chance
         )
@@ -385,7 +399,7 @@ class Resolver(IResolver):
         self.input_q.put(indata)
         return task_id
 
-    def _get_result(self, task_id: int):
+    def _get_result(self, task_id: int) -> OutData:
         outd = self.storage.load(task_id)
         if outd.err:
             if self.reraise:
@@ -393,18 +407,18 @@ class Resolver(IResolver):
             logger.error("Task %d failed with error: %s", task_id, outd.err)
         return outd
 
-    def iter_and_close(self):
+    def iter_and_close(self) -> Generator[OutData]:
         self.close()
         for msg in self.output_q:
             task_id = msg.data
             yield self._get_result(task_id)
 
-    def close(self):
+    def close(self) -> None:
         self.input_q.stop(self.workers)
         self.output_q.end()
         self.log_q.stop(self.printer)
 
-    def completed(self):
+    def completed(self) -> Generator[OutData]:
         for msg in self._iter():
             task_id = msg.data
             yield self._get_result(task_id)
@@ -413,7 +427,7 @@ class Resolver(IResolver):
         for msg in self._iter():
             yield msg.data
 
-    def _iter(self, timeout: float = 0.05):
+    def _iter(self, timeout: float = 0.05) -> Generator[qqabc.qq.Msg[int]]:
         """Generator that yields completed tasks as they finish.
 
         If timeout is set to a float value, the generator will yield
@@ -430,7 +444,7 @@ class Resolver(IResolver):
                 if self.done_cnt >= self.task_cnt:
                     return
 
-    def wait(self, task_id: int):
+    def wait(self, task_id: int) -> OutData:
         if not (0 < task_id <= self.task_cnt):
             raise InvalidTaskError(task_id)
         if self.storage.has(task_id):
@@ -444,20 +458,20 @@ class Resolver(IResolver):
 
 class PluginOptions(TypedDict, total=False):
     cache_dir: Path | None
-    httpx_options: dict | None
+    httpx_options: dict[str, Any] | None
     rm_cache: bool
-    context: dict | None
-    download_fn: Callable[[str, Path], bytes] | None
+    context: dict[str, Any] | None
+    download_fn: Callable[[str, Path], None] | None
 
 
 @dataclass
 class Plugin:
     url: str
     cache_dir: Path | None = None
-    httpx_options: dict | None = None
+    httpx_options: dict[str, Any] | None = None
     rm_cache: bool = False
-    context: dict | None = None
-    download_fn: Callable[[str, Path], bytes] | None = None
+    context: dict[str, Any] | None = None
+    download_fn: Callable[[str, Path], None] | None = None
 
 
 class ResolverConfig(TypedDict, total=False):
@@ -483,9 +497,9 @@ def get_grammar_cache_dir(*, cache_dir: Path | None = None) -> Path:
 def _download_plugin_file(
     url: str,
     local_path: Path,
-    httpx_options: dict | None = None,
-    download_fn: Callable[[str, Path], bytes] | None = None,
-):
+    httpx_options: dict[str, Any] | None = None,
+    download_fn: Callable[[str, Path], None] | None = None,
+) -> None:
     """下載 plugin Python 檔案到指定路徑"""
     if download_fn is not None:
         download_fn(url, local_path)
@@ -591,7 +605,7 @@ def load_remote_plugin(
     # 動態 import，使用唯一 module 名稱
     module_name = f"plugin_{url_hash}"
     spec = importlib.util.spec_from_file_location(module_name, local_path)
-    if spec.loader is None:
+    if spec is None or spec.loader is None:
         logger.warning("Cannot load plugin module from %s", local_path)
         return None, []
     module = importlib.util.module_from_spec(spec)
@@ -649,17 +663,17 @@ class ResolverFactory:
         **kwargs: Unpack[ResolverConfig],
     ) -> IResolver:
         config = self.config | kwargs
-        num_workers = config.get("num_workers")
-        cache_size = config.get("cache_size")
+        num_workers: int = config.get("num_workers", 4)
+        cache_size: int = config.get("cache_size", 1024 * 1024)
         worker = config.get("worker")
-        grammars = config.get("grammars")
+        grammars_cfg = config.get("grammars")
         plugins = config.get("plugins")
         plugin_options = config.get("plugin_options") or {}
-        job_chance = config.get("job_chance", 10)
-        worker_chance = config.get("worker_chance", 10)
+        job_chance: int = config.get("job_chance", 10)
+        worker_chance: int = config.get("worker_chance", 10)
 
         storage: IStorage = Storage(cached_size=cache_size)
-        grammars: list[IUrlGrammar] = grammars or []
+        grammars: list[IUrlGrammar] = grammars_cfg or []
         _plugins = []
         if plugins is not None:
             for p in plugins:
@@ -688,7 +702,7 @@ class ResolverFactory:
 
 
 def resolve(
-    **kwargs: ResolverConfig,
+    **kwargs: Unpack[ResolverConfig],
 ) -> IResolver:
     """建立一個Resolver物件來下載URL資源。
 

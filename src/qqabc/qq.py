@@ -35,6 +35,14 @@ from multiprocess import (
     Queue,  # type: ignore[reportAttributeAccessIssue]
 )
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self  # noqa: F401
+
 __all__ = (
     "END_MSG",
     "IS_MACOS",
@@ -157,7 +165,7 @@ class Worker:
         """
         return Worker(Thread(daemon=False, target=task, args=args, kwargs=kwargs))
 
-    def __init__(self, context: Context):
+    def __init__(self, context: Context) -> None:
         """Construct a worker from a context.
 
         Args:
@@ -165,6 +173,18 @@ class Worker:
         """
         self._worker = context
         self._worker.start()
+
+    def join(self, timeout: float | None = None) -> None:
+        """Wait until the worker terminates.
+
+        Args:
+            timeout: seconds to wait (``None`` = block forever).
+        """
+        self._worker.join(timeout)
+
+    def is_alive(self) -> bool:
+        """Return whether the worker is still running."""
+        return self._worker.is_alive()
 
     def __getattr__(self, name: str) -> Any:
         """Delegate properties to the underlying task.
@@ -201,6 +221,14 @@ class Q(Generic[T]):
             self._q = ThreadSafeQueue()
         else:  # pragma: no cover
             raise ValueError(f"Unknown queue type: {kind}")
+
+    def qsize(self) -> int:
+        """Return the approximate number of items in the queue."""
+        return self._q.qsize()
+
+    def empty(self) -> bool:
+        """Return ``True`` if the queue is empty."""
+        return self._q.empty()
 
     def __getattr__(self, name: str) -> Any:
         """Delegate properties to the underlying queue.

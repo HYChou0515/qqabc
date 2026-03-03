@@ -152,9 +152,13 @@ convention = "google"
     "PLR2004", # Magic value used in comparison, consider replacing `2` with a constant variable
     "ERA001",  # Found commented-out code
     "S101",  # Use of `assert` detected
+    "S108",  # Probable insecure usage of temporary file or directory
 ]
 
 [[tool.mypy.overrides]]
 module = "multiprocess"
 ignore_missing_imports = true
+
+[tool.pyright]
+typeCheckingMode = "basic"
 

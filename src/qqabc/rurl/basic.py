@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any, Generator
 
 from qqabc.types import (
     InData,
@@ -27,6 +27,14 @@ else:
         from typing_extensions import Self
 
 _WAIT_STORAGE_SAVE_TIMEOUT = 5
+
+
+def _ensure_fpath(fpath: str | None, task_id: int) -> Path:
+    """將 fpath (str | None) 轉換為 Path，若為 None 則 raise ValueError."""
+    if fpath is None:  # pragma: no cover
+        msg = f"fpath for task_id {task_id} is None"
+        raise ValueError(msg)
+    return Path(fpath)
 
 
 class Storage(IStorage):
@@ -51,12 +59,12 @@ class Storage(IStorage):
         self.delete_all()
         self.tmpdir.cleanup()
 
-    def register(self, indata: InData):
+    def register(self, indata: InData) -> None:
         if indata.fpath is None:
             indata.fpath = str(Path(self.tmpdir.name) / f"task_{indata.task_id}.dat")
         self.indata_storage[indata.task_id] = indata
 
-    def save(self, task_id: int, outdata: OutData):
+    def save(self, task_id: int, outdata: OutData) -> None:
         if task_id in self.saved:
             raise ValueError(
                 f"Output data for task_id {task_id} has already been saved."
@@ -75,7 +83,7 @@ class Storage(IStorage):
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
-            fpath = Path(self.indata_storage[task_id].fpath)
+            fpath = _ensure_fpath(self.indata_storage[task_id].fpath, task_id)
             st = time.time()
             while (
                 time.time() - st
@@ -89,12 +97,13 @@ class Storage(IStorage):
     def _save_to_disk(
         self, indata: InData, outdata: OutData, *, save_if_no_path: bool = True
     ):
-        if Path(indata.fpath).is_relative_to(self.tmpdir.name) and not save_if_no_path:
+        fpath = _ensure_fpath(indata.fpath, indata.task_id)
+        if fpath.is_relative_to(self.tmpdir.name) and not save_if_no_path:
             return
-        target_dir = str(Path(indata.fpath).parent)
+        target_dir = str(fpath.parent)
         with tempfile.NamedTemporaryFile(delete=False, dir=target_dir) as tmpf:
             tmpf.write(outdata.data.getbuffer())
-        shutil.move(tmpf.name, indata.fpath)
+        shutil.move(tmpf.name, fpath)
         self.size -= outdata.data.getbuffer().nbytes
 
     def delete(self, task_id: int, *, save_if_no_path: bool = True) -> None:
@@ -112,7 +121,7 @@ class Storage(IStorage):
 
 class DefaultWorker(IWorker):
     @contextmanager
-    def start(self, worker_id: int):
+    def start(self, worker_id: int) -> Generator[Self, None, None]:
         self.worker_id = worker_id
         import httpx  # noqa: PLC0415
 
@@ -138,7 +147,7 @@ class BasicUrlGrammar(IUrlGrammar):
     一般來說, 使用者可以繼承此類別並覆寫main_rule方法來實作自訂的URL解析規則。
     """
 
-    def __init__(self, context: dict | None = None):
+    def __init__(self, context: dict[str, Any] | None = None) -> None:
         self.context = context or {}
         self.url_min = 5
         self.url_max = 512
