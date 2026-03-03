@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import time
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
@@ -22,6 +23,8 @@ else:
         from typing import Self
     except ImportError:
         from typing_extensions import Self
+
+_WAIT_STORAGE_SAVE_TIMEOUT = 5
 
 
 class Storage(IStorage):
@@ -65,7 +68,13 @@ class Storage(IStorage):
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
-            with open(self.indata_storage[task_id].fpath, "rb") as fp:
+            fpath = Path(self.indata_storage[task_id].fpath)
+            st = time.time()
+            while (
+                time.time() - st
+            ) < _WAIT_STORAGE_SAVE_TIMEOUT and not fpath.exists():
+                time.sleep(0.01)
+            with open(fpath, "rb") as fp:
                 b = BytesIO(fp.read())
             return OutData(task_id=task_id, data=b)
         return self.outdata_storage[task_id]
