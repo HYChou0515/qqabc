@@ -344,6 +344,9 @@ class Resolver(IResolver):
         *,
         on_err: Literal["raise", "none"] = "raise",
     ) -> int | None:
+        existing = self.saved_task_id.get((url, str(fname)))
+        if existing is not None:
+            return existing
         if url is None:
             with open(fname, "rb") as f:
                 surl = self.solve_url(f)
