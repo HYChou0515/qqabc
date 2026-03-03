@@ -635,3 +635,39 @@ def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
         #  issue #11 will fail in this case
         for fp in resolver.iter_open():
             assert fp.seek(0, 2) == 1500
+
+
+def test_add_resolved_fname(tmpdir: Path, httpx_mock: HTTPXMock):
+    """add一個已經被resolve的fname不應該fail.
+
+    當fname已經被resolve過, 再次add同一個fname應該返回已有的task_id,
+    而不是嘗試重新讀取（可能已被覆寫的）檔案。
+    """
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    class CustomUrlGrammar(BasicUrlGrammar):
+        def main_rule(self, content: str) -> str | None:
+            if content.startswith("custom://"):
+                return f"https://{content.removeprefix('custom://')}"
+            return None
+
+    resolve = ResolverFactory(grammars=[CustomUrlGrammar()])
+
+    tmpdir = Path(tmpdir)
+    httpx_mock.add_response(
+        url="https://example.com/resource",
+        content=b"downloaded_data" * 100,
+    )
+
+    with open(tmpdir / "url.txt", "w") as f:
+        f.write("custom://example.com/resource")
+
+    with resolve(cache_size=0) as resolver:
+        task_id1 = resolver.add(fname=tmpdir / "url.txt")
+        od = resolver.wait(task_id1)
+        assert od.data.seek(0, 2) > 0
+
+        # 檔案已經被覆寫成下載的內容, 再次add同一個fname不應該fail
+        task_id2 = resolver.add(fname=tmpdir / "url.txt")
+        assert task_id2 == task_id1

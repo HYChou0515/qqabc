@@ -58,13 +58,13 @@ class Storage(IStorage):
         while self.size + this_size > self.cached_size and self.outdata_storage:
             oldest_task_id = min(self.outdata_storage)
             self.delete(oldest_task_id)
-        self.saved.add(task_id)
         if self.size + this_size > self.cached_size:
             indata = self.indata_storage[task_id]
             self._save_to_disk(indata, outdata)
         else:
             self.size += this_size
             self.outdata_storage[task_id] = outdata
+        self.saved.add(task_id)
 
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
@@ -84,7 +84,8 @@ class Storage(IStorage):
     ):
         if Path(indata.fpath).is_relative_to(self.tmpdir.name) and not save_if_no_path:
             return
-        with tempfile.NamedTemporaryFile(delete=False) as tmpf:
+        target_dir = str(Path(indata.fpath).parent)
+        with tempfile.NamedTemporaryFile(delete=False, dir=target_dir) as tmpf:
             tmpf.write(outdata.data.getbuffer())
         shutil.move(tmpf.name, indata.fpath)
         self.size -= outdata.data.getbuffer().nbytes
