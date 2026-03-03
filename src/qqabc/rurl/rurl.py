@@ -37,6 +37,7 @@ from qqabc.types import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import TracebackType
 
     from typing_extensions import Self, Unpack
 else:
@@ -164,6 +165,15 @@ class IResolver(ABC):
         pass
 
     @abstractmethod
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        pass
+
+    @abstractmethod
     def add(self, url: str | None = None, fname: str | None = None) -> int:
         """Add a URL to be resolved and return its task ID."""
 
@@ -285,9 +295,14 @@ class Resolver(IResolver):
         self.storage.__enter__()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.close()
-        self.storage.__exit__(exc_type, exc_value, traceback)
+        self.storage.__exit__(exc_type, exc_val, exc_tb)
 
     def _get_task_id(self):
         self.task_cnt += 1
@@ -334,7 +349,9 @@ class Resolver(IResolver):
 
     def add_wait(self, url: str | None = None, fname: str | None = None):
         if not (task_id := self.saved_task_id.get((url, str(fname)))):
-            task_id = self.add(url, fname=fname)
+            task_id = self.add(url, fname=fname, on_err="none")
+        if task_id is None:
+            return None
         return self.wait(task_id)
 
     def add(
@@ -344,9 +361,10 @@ class Resolver(IResolver):
         *,
         on_err: Literal["raise", "none"] = "raise",
     ) -> int | None:
-        existing = self.saved_task_id.get((url, str(fname)))
-        if existing is not None:
-            return existing
+        if fname is not None:
+            existing = self.saved_task_id.get((url, str(fname)))
+            if existing is not None:
+                return existing
         if url is None:
             with open(fname, "rb") as f:
                 surl = self.solve_url(f)
@@ -358,7 +376,8 @@ class Resolver(IResolver):
                 raise InvalidUrlError("Either url or fname must be provided.")
             return None
         task_id = self._get_task_id()
-        self.saved_task_id[(url, str(fname))] = task_id
+        if fname is not None:
+            self.saved_task_id[(url, str(fname))] = task_id
         indata = InData(
             task_id=task_id, url=surl, fpath=fname, job_chance=self.job_chance
         )

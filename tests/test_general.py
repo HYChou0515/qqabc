@@ -33,6 +33,63 @@ def test_import_version():
     assert re.match(r"^v?\d+\.\d+\.\d+([.-]\w+)?$", __version__)
 
 
+def test_iresolver_exit_is_abstract():
+    """驗證 IResolver.__exit__ 為 abstractmethod，
+
+    若子類未實作 __exit__ 則無法實例化。
+    """
+    import inspect
+
+    from qqabc.rurl import IResolver
+
+    # __exit__ 應在 abstractmethods 中
+    assert "__exit__" in getattr(IResolver, "__abstractmethods__", set())
+
+    # 驗證 __exit__ 有正確的型別標註
+    sig = inspect.signature(IResolver.__exit__)
+    params = list(sig.parameters.values())
+    # self, exc_type, exc_val, exc_tb
+    assert len(params) == 4
+    assert params[1].name == "exc_type"
+    assert params[2].name == "exc_val"
+    assert params[3].name == "exc_tb"
+
+    # 缺少 __exit__ 實作的子類應該無法實例化
+    class _IncompleteResolver(IResolver):
+        def __enter__(self):
+            return self
+
+        def add(self, url=None, fname=None):
+            return 0
+
+        def solve_url(self, url):
+            return None
+
+        def wait(self, task_id):
+            pass
+
+        def iter_and_close(self):
+            yield from ()
+
+        def completed(self):
+            yield from ()
+
+        def iter_completed_tasks(self):
+            yield from ()
+
+        def iter_open(self, mode="r"):
+            yield from ()
+
+        def open(self, filepath, mode="r"):
+            pass
+
+        def add_wait(self, url=None, fname=None):
+            pass
+
+    with pytest.raises(TypeError, match="__exit__"):
+        _IncompleteResolver()
+
+
 def test_usage1():
     """測試add_wait基本功能
 
@@ -671,3 +728,51 @@ def test_add_resolved_fname(tmpdir: Path, httpx_mock: HTTPXMock):
         # 檔案已經被覆寫成下載的內容, 再次add同一個fname不應該fail
         task_id2 = resolver.add(fname=tmpdir / "url.txt")
         assert task_id2 == task_id1
+
+
+def test_add_wait_non_url_file(tmpdir: Path):
+    """add_wait一個非URL的檔案應該回傳None, 而不是拋出InvalidUrlError。"""
+    from qqabc.rurl import resolve
+
+    tmpdir = Path(tmpdir)
+    content = "This is not a URL.\nJust some text content."
+    with open(tmpdir / "not_a_url.txt", "w") as f:
+        f.write(content)
+
+    with resolve() as resolver:
+        result = resolver.add_wait(fname=str(tmpdir / "not_a_url.txt"))
+        assert result is None
+
+    # 確認檔案內容沒有被改動
+    with open(tmpdir / "not_a_url.txt") as f:
+        assert f.read() == content
+
+
+def test_add_url_no_dedup(httpx_mock: HTTPXMock):
+    """add(url)重複呼叫相同URL應該建立不同的task, 不應dedup。
+
+    dedup只適用於fname-based的呼叫 (避免同一個檔案被下載兩次),
+    url-only的呼叫代表使用者明確想要多次下載。
+    """
+    from qqabc.rurl import ResolverFactory
+    from qqabc.rurl.basic import BasicUrlGrammar
+
+    httpx_mock.add_response(
+        url="https://example.com/data",
+        content=b"response_data" * 100,
+    )
+    httpx_mock.add_response(
+        url="https://example.com/data",
+        content=b"response_data" * 100,
+    )
+
+    resolve = ResolverFactory(grammars=[BasicUrlGrammar()])
+    with resolve() as resolver:
+        tid1 = resolver.add("https://example.com/data")
+        tid2 = resolver.add("https://example.com/data")
+        assert tid1 != tid2
+
+        results = set()
+        for od in resolver.completed():
+            results.add(od.task_id)
+        assert results == {tid1, tid2}

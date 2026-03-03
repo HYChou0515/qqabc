@@ -17,6 +17,8 @@ from qqabc.types import (
 )
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from typing_extensions import Self
 else:
     try:
@@ -40,7 +42,12 @@ class Storage(IStorage):
         self.tmpdir = tempfile.TemporaryDirectory()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.delete_all()
         self.tmpdir.cleanup()
 
