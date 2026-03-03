@@ -107,11 +107,11 @@ class InvalidUrlError(ValueError):
 
 class IStorage(ABC):
     @abstractmethod
-    def register(self, indata: InData):
+    def register(self, indata: InData) -> None:
         pass
 
     @abstractmethod
-    def save(self, task_id: int, outdata: OutData):
+    def save(self, task_id: int, outdata: OutData) -> None:
         pass
 
     @abstractmethod

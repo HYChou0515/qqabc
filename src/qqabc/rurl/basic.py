@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any, Generator
 
 from qqabc.types import (
     InData,
@@ -51,12 +51,12 @@ class Storage(IStorage):
         self.delete_all()
         self.tmpdir.cleanup()
 
-    def register(self, indata: InData):
+    def register(self, indata: InData) -> None:
         if indata.fpath is None:
             indata.fpath = str(Path(self.tmpdir.name) / f"task_{indata.task_id}.dat")
         self.indata_storage[indata.task_id] = indata
 
-    def save(self, task_id: int, outdata: OutData):
+    def save(self, task_id: int, outdata: OutData) -> None:
         if task_id in self.saved:
             raise ValueError(
                 f"Output data for task_id {task_id} has already been saved."
@@ -112,7 +112,7 @@ class Storage(IStorage):
 
 class DefaultWorker(IWorker):
     @contextmanager
-    def start(self, worker_id: int):
+    def start(self, worker_id: int) -> Generator[Self, None, None]:
         self.worker_id = worker_id
         import httpx  # noqa: PLC0415
 
@@ -138,7 +138,7 @@ class BasicUrlGrammar(IUrlGrammar):
     一般來說, 使用者可以繼承此類別並覆寫main_rule方法來實作自訂的URL解析規則。
     """
 
-    def __init__(self, context: dict | None = None):
+    def __init__(self, context: dict[str, Any] | None = None) -> None:
         self.context = context or {}
         self.url_min = 5
         self.url_max = 512
