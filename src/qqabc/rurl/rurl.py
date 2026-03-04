@@ -364,6 +364,16 @@ class Resolver(IResolver):
             return None
         return self.wait(task_id)
 
+    def _add_existing(self, url: str | None, fname: str) -> int:
+        """建立一個立即完成的 task，用於 fname 已存在於磁碟的情況."""
+        task_id = self._get_task_id()
+        self.saved_task_id[(url, fname)] = task_id
+        indata = InData(task_id=task_id, url=url or "", fpath=fname, job_chance=0)
+        self.storage.register(indata)
+        self.storage.save_existing(task_id)
+        self.output_q.put(task_id)
+        return task_id
+
     def add(
         self,
         url: str | None = None,
@@ -376,6 +386,8 @@ class Resolver(IResolver):
             existing = self.saved_task_id.get((url, fname))
             if existing is not None:
                 return existing
+            if url is not None and Path(fname).exists():
+                return self._add_existing(url, fname)
         if url is None:
             if fname is None:  # pragma: no cover
                 msg = "Either url or fname must be provided."
@@ -386,6 +398,8 @@ class Resolver(IResolver):
             surl = self.solve_url(url)
         surl = surl or url
         if surl is None:
+            if fname is not None and Path(fname).exists():
+                return self._add_existing(url, fname)
             if on_err == "raise":
                 raise InvalidUrlError("Either url or fname must be provided.")
             return None

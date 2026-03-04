@@ -135,5 +135,12 @@ class IStorage(ABC):
         pass
 
     @abstractmethod
+    def save_existing(self, task_id: int) -> None:
+        """標記 task 的資料已存在於磁碟上的 fpath，不實際儲存 OutData.
+
+        之後 load() 被呼叫時會從 indata.fpath 讀取既有檔案.
+        """
+
+    @abstractmethod
     def has(self, task_id: int) -> bool:
         pass

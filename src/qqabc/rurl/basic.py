@@ -81,6 +81,13 @@ class Storage(IStorage):
             self.outdata_storage[task_id] = outdata
         self.saved.add(task_id)
 
+    def save_existing(self, task_id: int) -> None:
+        if task_id in self.saved:
+            raise ValueError(
+                f"Output data for task_id {task_id} has already been saved."
+            )
+        self.saved.add(task_id)
+
     def load(self, task_id: int) -> OutData:
         if task_id not in self.outdata_storage and task_id in self.saved:
             fpath = _ensure_fpath(self.indata_storage[task_id].fpath, task_id)
