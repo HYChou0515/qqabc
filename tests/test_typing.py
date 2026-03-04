@@ -87,13 +87,18 @@ class TestResolverReturnTypes:
             assert isinstance(result, OutData)
             assert result.data.read() == b"aw_data"
 
-    def test_add_wait_returns_none_for_invalid(self, tmp_path: Any) -> None:
+    def test_add_wait_returns_outdata_for_existing_non_url_file(
+        self, tmp_path: Any
+    ) -> None:
         fpath = tmp_path / "not_a_url.txt"
         fpath.write_text("this is not a url content")
         with resolve(num_workers=1) as r:
-            # fname 不包含 URL, url=None → add 回傳 None → add_wait 回傳 None
+            # fname 不包含 URL 但檔案存在 → 視為已完成, 回傳 OutData
             result = r.add_wait(fname=str(fpath))
-            assert result is None
+            assert isinstance(result, OutData)
+            assert result.err is None
+            result.data.seek(0)
+            assert result.data.read() == b"this is not a url content"
 
     def test_completed_yields_outdata(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/cmp.txt", content=b"cmp")

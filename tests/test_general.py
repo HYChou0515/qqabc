@@ -732,7 +732,7 @@ def test_add_resolved_fname(tmpdir: Path, httpx_mock: HTTPXMock):
 
 
 def test_add_wait_non_url_file(tmpdir: Path):
-    """add_wait一個非URL的檔案應該回傳None, 而不是拋出InvalidUrlError。"""
+    """add_wait一個非URL的檔案, fname已存在則視為已完成, 回傳OutData。"""
     from qqabc.rurl import resolve
 
     tmpdir = Path(tmpdir)
@@ -742,7 +742,10 @@ def test_add_wait_non_url_file(tmpdir: Path):
 
     with resolve() as resolver:
         result = resolver.add_wait(fname=str(tmpdir / "not_a_url.txt"))
-        assert result is None
+        assert result is not None
+        assert result.err is None
+        result.data.seek(0)
+        assert result.data.read() == content.encode("utf-8")
 
     # 確認檔案內容沒有被改動
     with open(tmpdir / "not_a_url.txt") as f:
