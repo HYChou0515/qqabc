@@ -65,11 +65,15 @@ test-benchmark:
 	@echo "執行基準測試（需要外部系統依賴）..."
 	uv run pytest -m "benchmark" -v
 
-# 執行測試並生成覆蓋率報告
+# 執行測試並生成覆蓋率報告（跨 Python 版本 parallel coverage）
 .PHONY: coverage
 coverage:
 	@echo "生成覆蓋率報告..."
-	uv run coverage run --branch -m pytest -m "not benchmark"
+	rm -f .coverage .coverage.*
+	uv run --extra httpx --python 3.13 coverage run --branch -m pytest -m "not benchmark" tests -v
+	uv run --extra httpx --python 3.10 coverage run --branch -m pytest -m "not benchmark" tests -v
+	uv run --extra httpx --python 3.9 coverage run --branch -m pytest -m "not benchmark" tests -v
+	uv run --python 3.13 coverage combine
 	uv run coverage report -m
 
 # 生成 HTML 覆蓋率報告

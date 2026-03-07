@@ -7,7 +7,6 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Literal
 
 import pytest
-from httpx import HTTPStatusError
 
 if TYPE_CHECKING:
     from pytest_httpx import HTTPXMock
@@ -398,6 +397,7 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     tmpdir = Path(tmpdir)
 
     content = dedent("""
+        from __future__ import annotations
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -436,6 +436,7 @@ def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None
     tmpdir = Path(tmpdir)
 
     content = dedent("""
+        from __future__ import annotations
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -483,6 +484,7 @@ def test_plugins3(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     tmpdir = Path(tmpdir)
 
     content = dedent("""
+        from __future__ import annotations
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -523,6 +525,7 @@ def test_plugins4(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     tmpdir = Path(tmpdir)
 
     content = dedent("""
+        from __future__ import annotations
         from qqabc.rurl.basic import BasicUrlGrammar
         class TestUrlGrammar(BasicUrlGrammar):
             def main_rule(self, content: str) -> str | None:
@@ -630,6 +633,8 @@ def test_retry2(httpx_mock: HTTPXMock):
         url="https://example.com/resource",
         status_code=500,
     )
+
+    from httpx import HTTPStatusError
 
     resolve = ResolverFactory(
         grammars=[CustomUrlGrammar()],

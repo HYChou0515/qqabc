@@ -7,7 +7,7 @@ readme = "README.md"
 authors = [
     { name = "Chou Hung-Yi", email = "hychou.svm@gmail.com" }
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "multiprocess~=0.70.14",
     "typing_extensions; python_version <= '3.10'"
@@ -19,7 +19,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -41,13 +40,15 @@ path = "src/qqabc/__init__.py"
 httpx = [
     "httpx>=0.28.1",
 ]
+pipe = []
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "pytest-httpx; python_version > '3.8'",
+    "pytest-asyncio>=0.23; python_version >= '3.10'",
+    "pytest-httpx; python_version >= '3.9'",
     "build>=1.2.2.post1",
     "coverage>=7.6.1",
     "furo>=2024.8.6",
@@ -78,6 +79,7 @@ exclude_also = [
     'QQBugError',
 ]
 [tool.coverage.run]
+parallel = true
 include = [
     "src/*",
 ]
@@ -153,6 +155,7 @@ convention = "google"
     "ERA001",  # Found commented-out code
     "S101",  # Use of `assert` detected
     "S108",  # Probable insecure usage of temporary file or directory
+    "S603",  # `subprocess` call: check for execution of untrusted input
 ]
 
 [[tool.mypy.overrides]]

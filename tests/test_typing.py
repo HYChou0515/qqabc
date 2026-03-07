@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import inspect
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, get_type_hints
+from typing import TYPE_CHECKING, Any
 
 from qqabc.qq import Q, Worker
 from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage, _ensure_fpath
@@ -369,17 +369,17 @@ class TestTypeAnnotationsPresent:
     """檢查各方法是否有型別標註 (非 Any)。"""
 
     def test_q_put_returns_self(self) -> None:
-        hints = get_type_hints(Q.put)
-        assert "return" in hints
+        annotations = Q.put.__annotations__
+        assert "return" in annotations
         # 回傳應該是 Self (在 runtime 可能解析為不同名稱)
 
     def test_q_end_returns_self(self) -> None:
-        hints = get_type_hints(Q.end)
-        assert "return" in hints
+        annotations = Q.end.__annotations__
+        assert "return" in annotations
 
     def test_q_stop_returns_self(self) -> None:
-        hints = get_type_hints(Q.stop)
-        assert "return" in hints
+        annotations = Q.stop.__annotations__
+        assert "return" in annotations
 
     def test_resolver_wait_has_return(self) -> None:
         sig = inspect.signature(Resolver.wait)
