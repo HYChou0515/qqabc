@@ -1,0 +1,65 @@
+name: CI 測試
+
+on:
+  push:
+    branches: [master, main, "dev*"]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  # 程式碼品質檢查
+  lint:
+    name: "Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設置 Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 安裝 uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: 安裝依賴
+        run: uv sync --dev
+
+      - name: 檢查程式碼品質
+        run: |
+          uv run ruff check .
+          uv run ruff format --check
+
+  # 跨版本測試 + 統一覆蓋率（3.13 + 3.9 parallel coverage combine）
+  test:
+    name: "Test + Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設置 Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 安裝 uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: 安裝 Python 3.9 via uv
+        run: uv python install 3.9
+
+      - name: 執行 3.13 測試 (coverage parallel)
+        run: |
+          uv run --python 3.13 coverage run --branch -m pytest \
+            -m "not benchmark" tests -v
+
+      - name: 執行 3.9 pipe ImportError 分支測試 (coverage parallel)
+        run: |
+          uv run --python 3.9 coverage run --branch -m pytest \
+            tests/test_pipe_infra_oldpy.py -v
+
+      - name: 合併覆蓋率並報告
+        run: |
+          uv run --python 3.13 coverage combine
+          uv run coverage report -m
