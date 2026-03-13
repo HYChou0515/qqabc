@@ -7,8 +7,11 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, get_type_hints
+
+import pytest
 
 from qqabc.qq import Q, Worker
 from qqabc.rurl.basic import BasicUrlGrammar, DefaultWorker, Storage, _ensure_fpath
@@ -35,6 +38,7 @@ if TYPE_CHECKING:
 class TestResolveSignature:
     """驗證 resolve() 和 ResolverFactory 接受 ResolverConfig 中定義的 kwargs。"""
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_resolve_accepts_num_workers(self, httpx_mock: HTTPXMock) -> None:
         """resolve() 應該接受 num_workers kwarg。"""
         httpx_mock.add_response(url="https://example.com/a.txt", content=b"hello")
@@ -44,6 +48,7 @@ class TestResolveSignature:
             for od in r.completed():
                 assert od.data.read() == b"hello"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_resolve_accepts_cache_size(self, httpx_mock: HTTPXMock) -> None:
         """resolve() 應該接受 cache_size kwarg。"""
         httpx_mock.add_response(url="https://example.com/b.txt", content=b"world")
@@ -53,6 +58,7 @@ class TestResolveSignature:
             for od in r.completed():
                 assert od.data.read() == b"world"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_resolver_factory_accepts_kwargs(self, httpx_mock: HTTPXMock) -> None:
         """ResolverFactory 應正確接受 typed kwargs。"""
         httpx_mock.add_response(url="https://example.com/c.txt", content=b"data")
@@ -72,6 +78,7 @@ class TestResolveSignature:
 class TestResolverReturnTypes:
     """驗證 Resolver 各方法回傳正確型別的物件。"""
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_wait_returns_outdata(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/w.txt", content=b"wait_data")
         with resolve(num_workers=1) as r:
@@ -80,6 +87,7 @@ class TestResolverReturnTypes:
             assert isinstance(result, OutData)
             assert result.data.read() == b"wait_data"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_add_wait_returns_outdata_or_none(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/aw.txt", content=b"aw_data")
         with resolve(num_workers=1) as r:
@@ -100,6 +108,7 @@ class TestResolverReturnTypes:
             result.data.seek(0)
             assert result.data.read() == b"this is not a url content"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_completed_yields_outdata(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/cmp.txt", content=b"cmp")
         with resolve(num_workers=1) as r:
@@ -108,6 +117,7 @@ class TestResolverReturnTypes:
             assert len(results) == 1
             assert isinstance(results[0], OutData)
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_iter_and_close_yields_outdata(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/ic.txt", content=b"ic")
         r = resolve(num_workers=1)
@@ -118,6 +128,7 @@ class TestResolverReturnTypes:
         assert isinstance(results[0], OutData)
         r.__exit__(None, None, None)
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_close_returns_none(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/cl.txt", content=b"cl")
         r = resolve(num_workers=1)
@@ -134,6 +145,7 @@ class TestResolverReturnTypes:
 
 
 class TestResolverSavedTaskId:
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_saved_task_id_is_typed_dict(
         self, httpx_mock: HTTPXMock, tmp_path: Any
     ) -> None:
@@ -307,6 +319,7 @@ class TestDefaultWorkerStart:
 
 
 class TestIOParameterization:
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_open_rb_yields_bytes_io(
         self, httpx_mock: HTTPXMock, tmp_path: Any
     ) -> None:
@@ -319,6 +332,7 @@ class TestIOParameterization:
                 assert isinstance(data, bytes)
                 assert data == b"iodata"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_open_r_yields_str_io(self, httpx_mock: HTTPXMock, tmp_path: Any) -> None:
         httpx_mock.add_response(url="https://example.com/io2.txt", content=b"iodata2")
         fpath = tmp_path / "test_url2.txt"
@@ -329,6 +343,7 @@ class TestIOParameterization:
                 assert isinstance(data, str)
                 assert data == "iodata2"
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_iter_open_rb_yields_bytes(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/it.txt", content=b"itdata")
         with resolve(num_workers=1) as r:
@@ -337,6 +352,7 @@ class TestIOParameterization:
                 data = f.read()
                 assert isinstance(data, bytes)
 
+    @pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
     def test_iter_open_r_yields_str(self, httpx_mock: HTTPXMock) -> None:
         httpx_mock.add_response(url="https://example.com/it2.txt", content=b"itdata2")
         with resolve(num_workers=1) as r:
@@ -365,6 +381,7 @@ class TestGetnow:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="typing 需要 Python 3.10+")
 class TestTypeAnnotationsPresent:
     """檢查各方法是否有型別標註 (非 Any)。"""
 

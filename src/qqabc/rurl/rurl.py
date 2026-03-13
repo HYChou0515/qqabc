@@ -670,13 +670,13 @@ class ResolverFactory:
         self,
         **kwargs: Unpack[ResolverConfig],
     ):
-        self.config = _DEFAULT_RESOLVER_CONFIG | kwargs
+        self.config: ResolverConfig = {**_DEFAULT_RESOLVER_CONFIG, **kwargs}
 
     def __call__(
         self,
         **kwargs: Unpack[ResolverConfig],
     ) -> IResolver:
-        config = self.config | kwargs
+        config: ResolverConfig = {**self.config, **kwargs}
         num_workers: int = config.get("num_workers", 4)
         cache_size: int = config.get("cache_size", 1024 * 1024)
         worker = config.get("worker")

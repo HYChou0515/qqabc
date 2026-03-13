@@ -16,6 +16,18 @@ from qqabc.types import (
     OutData,
 )
 
+if not hasattr(Path, "is_relative_to"):
+
+    def is_relative_to(self, *others):
+        try:
+            self.relative_to(*others)
+        except ValueError:
+            return False
+        else:
+            return True
+
+    Path.is_relative_to = is_relative_to
+
 if TYPE_CHECKING:
     from types import TracebackType
 
