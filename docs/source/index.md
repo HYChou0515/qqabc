@@ -362,3 +362,127 @@ class MyStage(IStage[int, int]):
 custom = MyStage()
 pipeline = custom | Stage(fn=save_fn, name="save")
 ```
+
+### 6.6 Pipeline — 一行建構流水線
+
+`pipe()` 是最簡單的使用方式：傳入 Stage 列表與 input 資料，自動串接、執行、回傳結果。
+
+```python
+from qqabc.pipe import pipe, Stage
+
+# 一行搞定：download → parse → save，所有 stage 同時運行
+for result in pipe(
+    [
+        Stage(fn=download, executor="thread", concurrency=8),
+        Stage(fn=parse, executor="thread", concurrency=4),
+        Stage(fn=save, executor="thread", concurrency=2),
+    ],
+    input=urls,
+    backpressure=100,  # 背壓：stage 之間 queue 最多 100 筆
+):
+    print(result)
+```
+
+**比較 stdlib：**
+```python
+# ---- stdlib 做法（要等全部完成才能開始下一步）----
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor(8) as tp:
+    raw = list(tp.map(download, urls))       # 要等全部下載完
+with ThreadPoolExecutor(4) as tp:
+    parsed = list(tp.map(parse, raw))        # 要等全部 parse 完
+with ThreadPoolExecutor(2) as tp:
+    list(tp.map(save, parsed))
+
+# ---- qqabc.pipe 做法（pipeline，一筆完成一筆出來）----
+from qqabc.pipe import pipe, Stage
+for r in pipe(
+    [Stage(fn=download, concurrency=8), Stage(fn=parse, concurrency=4), Stage(fn=save, concurrency=2)],
+    input=urls,
+    backpressure=100,
+):
+    print(r)
+```
+
+#### 混合 Thread + Async
+
+```python
+from qqabc.pipe import pipe, Stage
+
+async def fetch(url: str) -> bytes:
+    ...  # aiohttp / httpx async
+
+for result in pipe(
+    [
+        Stage(fn=fetch, concurrency=50),                          # async（自動偵測）
+        Stage(fn=parse_html, executor="thread", concurrency=4),   # thread
+    ],
+    input=url_list,
+    backpressure=50,
+):
+    print(result)
+```
+
+#### Context Manager 用法
+
+需要更細粒度的控制時，使用 `Pipeline` 物件：
+
+```python
+from qqabc.pipe import Pipeline, Stage
+
+with Pipeline(
+    Stage(fn=lambda x: x + 1) | Stage(fn=lambda x: x * 2),
+    backpressure=10,
+) as p:
+    p.submit(1)
+    p.submit(2)
+    p.submit_many(range(3, 6))
+
+for result in p.results():
+    print(result)
+```
+
+### 6.7 Bounded Queue 與背壓（Backpressure）
+
+`pipe()` / `Pipeline` 的 `backpressure` 參數控制 stage 之間的 queue 大小。當下游慢時，上游的 `put()` 自動阻塞，防止記憶體無限成長。
+
+若需要手動操作底層 queue，可直接使用 `BoundedQ`（繼承自 `Q`，完全向後相容）：
+
+```python
+from qqabc.pipe import BoundedQ
+
+q = BoundedQ(kind="thread", maxsize=100)  # maxsize=0 為無界
+q.put("data", order=0)
+q.end()
+for msg in q:
+    print(msg.data)
+```
+
+### 6.8 AsyncBoundedQ
+
+用於 async stage 之間的 asyncio queue 包裝，同樣支援背壓：
+
+```python
+import asyncio
+from qqabc.pipe import AsyncBoundedQ
+
+async def main():
+    q = AsyncBoundedQ(maxsize=10)
+    await q.put("hello", order=0)
+    await q.put("world", order=1)
+    await q.end()
+
+    async for msg in q:
+        print(msg.data)
+
+asyncio.run(main())
+```
+
+### 6.9 Thread ↔ Async Bridge
+
+在混合 pipeline 中跨執行模型傳遞資料（通常 `Pipeline` 會自動處理，不需要手動使用）：
+
+| 函式 | 方向 | 說明 |
+|---|---|---|
+| `bridge_thread_to_async` | thread/process → async | 將阻塞式 `Q` 的訊息轉入 `AsyncBoundedQ` |
+| `bridge_async_to_thread` | async → thread/process | 將 `AsyncBoundedQ` 的訊息轉入阻塞式 `Q` |
