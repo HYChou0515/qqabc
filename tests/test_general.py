@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
@@ -390,6 +391,8 @@ def test_usage9(tmpdir: Path):
             assert fp.seek(0, 2) > 1024
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="typing 需要 Python 3.10+")
 def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     """Test that plugins are correctly imported."""
     from qqabc.rurl import Plugin, resolve
@@ -428,6 +431,8 @@ def test_plugins(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     assert any(tmpdir.iterdir())
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="typing 需要 Python 3.10+")
 @pytest.mark.parametrize("use_pic", [True, False])
 def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None:
     """Test that plugins are correctly imported."""
@@ -475,6 +480,8 @@ def test_plugins2(tmpdir: Path, httpx_mock: HTTPXMock, *, use_pic: bool) -> None
         resolver.add_wait("test://example")
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="typing 需要 Python 3.10+")
 def test_plugins3(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     """Test that plugins are correctly imported."""
     import httpx
@@ -518,6 +525,8 @@ def test_plugins3(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
         pass
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="typing 需要 Python 3.10+")
 def test_plugins4(tmpdir: Path, httpx_mock: HTTPXMock) -> None:
     """Test that plugins are correctly imported."""
     from qqabc.rurl import Plugin, resolve
@@ -592,6 +601,7 @@ def test_add_should_resolve(tmpdir: Path):
         assert data.seek(0, 2) > 1024
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_retry1(httpx_mock: HTTPXMock):
     from qqabc.rurl import ResolverFactory
     from qqabc.rurl.basic import BasicUrlGrammar
@@ -617,6 +627,7 @@ def test_retry1(httpx_mock: HTTPXMock):
         assert data.seek(0, 2) == 1500
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_retry2(httpx_mock: HTTPXMock):
     from qqabc.rurl import ResolverFactory
     from qqabc.rurl.basic import BasicUrlGrammar
@@ -644,6 +655,7 @@ def test_retry2(httpx_mock: HTTPXMock):
             resolver.add_wait("custom://example/resource")
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
     from qqabc.rurl import ResolverFactory
     from qqabc.rurl.basic import BasicUrlGrammar
@@ -699,6 +711,7 @@ def test_usage10(tmpdir: Path, httpx_mock: HTTPXMock):
             assert fp.seek(0, 2) == 1500
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_add_resolved_fname(tmpdir: Path, httpx_mock: HTTPXMock):
     """add一個已經被resolve的fname不應該fail.
 
@@ -757,6 +770,7 @@ def test_add_wait_non_url_file(tmpdir: Path):
         assert f.read() == content
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_add_url_no_dedup(httpx_mock: HTTPXMock):
     """add(url)重複呼叫相同URL應該建立不同的task, 不應dedup。
 

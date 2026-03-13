@@ -69,11 +69,11 @@ test-benchmark:
 .PHONY: coverage
 coverage:
 	@echo "生成覆蓋率報告..."
-	rm -f .coverage .coverage.*
-	uv run --extra httpx --python 3.13 coverage run --branch -m pytest -m "not benchmark" tests -v
-	uv run --extra httpx --python 3.10 coverage run --branch -m pytest -m "not benchmark" tests -v
-	uv run --extra httpx --python 3.9 coverage run --branch -m pytest -m "not benchmark" tests -v
-	uv run --python 3.13 coverage combine
+	uv run --extra httpx --python 3.8 coverage run -p --branch -m pytest -m "not benchmark" tests -v
+	uv run --extra httpx --python 3.13 coverage run -p --branch -m pytest -m "not benchmark" tests -v
+	uv run --extra httpx --python 3.10 coverage run -p --branch -m pytest -m "not benchmark" tests -v
+	uv run --extra httpx --python 3.9 coverage run -p --branch -m pytest -m "not benchmark" tests -v
+	uv run coverage combine
 	uv run coverage report -m
 
 # 生成 HTML 覆蓋率報告

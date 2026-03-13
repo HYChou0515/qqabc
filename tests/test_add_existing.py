@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
+
+import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,6 +33,7 @@ def test_add_fname_exists_wait(tmp_path: Path):
         assert od.data.read() == content
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_add_fname_exists_with_url(tmp_path: Path, httpx_mock: HTTPXMock):
     """同時給 url 和已存在的 fname 時, 不應觸發下載.
 
@@ -65,6 +69,7 @@ def test_add_fname_exists_dedup(tmp_path: Path):
         assert tid1 == tid2
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_add_fname_exists_completed(tmp_path: Path, httpx_mock: HTTPXMock):
     """混合 pre-done 和正常 task, completed() 應產出全部 OutData."""
     from qqabc.rurl import ResolverFactory
@@ -125,6 +130,7 @@ def test_add_fname_exists_iter_open_text(tmp_path: Path):
         assert results[0] == content
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="httpx_mock 需要 Python 3.9+")
 def test_add_fname_not_exists_normal_flow(tmp_path: Path, httpx_mock: HTTPXMock):
     """Fname 不存在時, 走正常 worker resolve 流程, 不觸發新邏輯."""
     from qqabc.rurl import ResolverFactory
