@@ -10,3 +10,7 @@ if sys.version_info < (3, 10):
         f"Current version: {sys.version_info[0]}.{sys.version_info[1]}"
     )
     raise ImportError(msg)
+
+from qqabc.pipe.stage import ExecutorType, IStage, Stage
+
+__all__ = ["ExecutorType", "IStage", "Stage"]

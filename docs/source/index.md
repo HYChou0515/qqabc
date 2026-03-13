@@ -257,3 +257,108 @@ with open("urls2.txt", "rb") as fp:
     data2_disk = fp.read()
     # data2_disk 為 4500 bytes 的下載內容
 ```
+
+## 6. Pipeline Stage（需要 Python 3.10+）
+
+`qqabc.pipe` 提供 `Stage` 抽象，用於定義 pipeline 中的處理階段。每個 Stage 可獨立選擇執行模式（thread / process / async），適合區分 CPU-bound 與 IO-bound 任務。
+
+**安裝**
+```
+pip install qqabc[pipe]
+```
+
+### 6.1 基本用法
+
+```python
+from qqabc.pipe import Stage
+
+# 建立一個 thread-based stage
+stage = Stage(fn=lambda x: x + 1, executor="thread", concurrency=4, name="adder")
+
+stage.fn(10)       # 11
+stage.executor     # "thread"
+stage.concurrency  # 4
+stage.name         # "adder"
+```
+
+### 6.2 Executor 類型
+
+Stage 支援三種執行模式：
+
+| Executor | 說明 | 適用場景 |
+|---|---|---|
+| `"thread"` | 執行緒（預設） | IO-bound 任務，如網路請求、檔案讀寫 |
+| `"process"` | 行程 | CPU-bound 任務，如資料運算、影像處理 |
+| `"async"` | asyncio | 大量並行 IO 任務，如批次 API 呼叫 |
+
+```python
+from qqabc.pipe import Stage
+
+io_stage = Stage(fn=download, executor="thread", concurrency=8)
+cpu_stage = Stage(fn=transform, executor="process", concurrency=4)
+async_stage = Stage(fn=fetch, executor="async", concurrency=16)
+```
+
+### 6.3 Async 自動偵測
+
+傳入 async 函式時，`executor` 會自動設為 `"async"`，無需手動指定：
+
+```python
+from qqabc.pipe import Stage
+
+async def fetch(url: str) -> bytes:
+    ...
+
+stage = Stage(fn=fetch)
+stage.executor  # "async" — 自動偵測
+```
+
+若需要覆蓋自動偵測，可明確指定 `executor`：
+
+```python
+stage = Stage(fn=fetch, executor="thread")  # 強制使用 thread
+```
+
+### 6.4 使用 `|` 串接 Stage
+
+透過 `|` 運算子將多個 Stage 串成 pipeline chain，為後續 Pipeline builder 做準備：
+
+```python
+from qqabc.pipe import Stage
+
+download = Stage(fn=download_fn, executor="thread", concurrency=8, name="download")
+parse = Stage(fn=parse_fn, executor="process", concurrency=4, name="parse")
+save = Stage(fn=save_fn, executor="thread", concurrency=2, name="save")
+
+pipeline = download | parse | save
+# pipeline 為 [download, parse, save]
+```
+
+### 6.5 自訂 Stage（IStage）
+
+進階使用者可實作 `IStage` 介面來自訂 Stage 行為：
+
+```python
+from collections.abc import Callable
+from qqabc.pipe import IStage, ExecutorType
+
+class MyStage(IStage[int, int]):
+    @property
+    def fn(self) -> Callable[[int], int]:
+        return lambda x: x * 2
+
+    @property
+    def executor(self) -> ExecutorType:
+        return "process"
+
+    @property
+    def concurrency(self) -> int:
+        return 8
+
+    @property
+    def name(self) -> str:
+        return "my_custom_stage"
+
+custom = MyStage()
+pipeline = custom | Stage(fn=save_fn, name="save")
+```
