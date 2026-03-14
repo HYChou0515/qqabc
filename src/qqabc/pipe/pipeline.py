@@ -92,13 +92,21 @@ async def _async_main(
     in_q: BoundedQ[Any],
     out_q: BoundedQ[Any],
 ) -> None:
+    """Async executor 核心邏輯。
+
+    1. 透過 bridge 將 thread queue 轉為 async queue
+    2. 用 ``asyncio.Semaphore`` 控制並行度
+    3. 每個 item 以 ``asyncio.create_task`` 執行 ``fn``
+    4. 結果透過 bridge 轉回 thread queue
+    """
     sem = asyncio.Semaphore(concurrency)
     pending: set[asyncio.Task[None]] = set()
 
+    # thread → async bridge（input 方向）
     async_in: AsyncBoundedQ[Any] = AsyncBoundedQ(maxsize=0)
     bridge_task = asyncio.create_task(bridge_thread_to_async(in_q, async_in))
 
-    # 同步 bridged queue → thread queue
+    # async → thread bridge（output 方向）
     async_out: AsyncBoundedQ[Any] = AsyncBoundedQ(maxsize=0)
 
     async def _process(data: Any, order: int) -> None:
@@ -109,15 +117,17 @@ async def _async_main(
             sem.release()
 
     async def _consumer() -> None:
-        async for msg in async_in:
-            await sem.acquire()
-            task = asyncio.create_task(_process(msg.data, msg.order))
-            pending.add(task)
-            task.add_done_callback(pending.discard)
-        # 等待尚在處理的 tasks
-        if pending:
-            await asyncio.gather(*pending)
-        await async_out.end()
+        try:
+            async for msg in async_in:
+                await sem.acquire()
+                task = asyncio.create_task(_process(msg.data, msg.order))
+                pending.add(task)
+                task.add_done_callback(pending.discard)
+            # 等待尚在處理的 tasks（return_exceptions=True 防止 deadlock）
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+        finally:
+            await async_out.end()
 
     consumer_task = asyncio.create_task(_consumer())
 

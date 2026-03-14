@@ -11,12 +11,7 @@ if sys.version_info < (3, 10):
     )
     raise ImportError(msg)
 
-from qqabc.pipe.channel import (
-    AsyncBoundedQ,
-    BoundedQ,
-    bridge_async_to_thread,
-    bridge_thread_to_async,
-)
+from qqabc.pipe.channel import AsyncBoundedQ, BoundedQ
 from qqabc.pipe.pipeline import Pipeline, pipe
 from qqabc.pipe.stage import ExecutorType, IStage, Stage
 
@@ -27,7 +22,5 @@ __all__ = [
     "IStage",
     "Pipeline",
     "Stage",
-    "bridge_async_to_thread",
-    "bridge_thread_to_async",
     "pipe",
 ]

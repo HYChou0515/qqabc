@@ -1,14 +1,15 @@
-"""Channel — Bounded queue 與背壓機制。
+"""Channel — Bounded Queue 與 async bridge。
 
-提供 ``BoundedQ``（有界 thread/process queue）、``AsyncBoundedQ``（asyncio queue
-包裝）、以及 thread ↔ async bridge 用於跨執行模型的資料傳輸。
+提供 ``BoundedQ``（有界 queue）和 ``AsyncBoundedQ``（asyncio queue），
+以及 thread ↔ async 的 bridge 函式，讓 thread-based 與 async-based
+的 stage 能正確溝通。
 """
 
 from __future__ import annotations
 
 import asyncio
 from queue import Queue as ThreadSafeQueue
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from multiprocess import Queue  # type: ignore[reportAttributeAccessIssue]
 
@@ -30,86 +31,80 @@ __all__ = [
 
 
 class BoundedQ(Q[T]):
-    """有界 queue，put() 在 queue 滿時阻塞。
+    """有界 queue，``put()`` 在 queue 滿時阻塞（backpressure）。
 
-    繼承 ``Q`` 的所有功能，額外支援 ``maxsize`` 參數控制背壓。
-    ``maxsize=0`` 時行為與 ``Q`` 完全相同（無界）。
+    繼承 ``Q`` 的所有迭代與 sentinel 機制，
+    但底層 queue 透過 ``maxsize`` 限制容量。
 
     Args:
-        kind: 執行模型，預設為 ``"thread"``。
-        maxsize: queue 容量上限，0 表示無界。
+        kind: 執行模式，``"thread"`` 或 ``"process"``。
+        maxsize: 最大容量，0 = 無界（向後相容）。
     """
 
-    def __init__(self, kind: ContextName = "thread", maxsize: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        kind: ContextName = "thread",
+        maxsize: int = 0,
+    ) -> None:
+        # 不呼叫 super().__init__()，直接建立有 maxsize 的 queue
         if kind == "process":
-            self._q = Queue(maxsize=maxsize)
+            self._q: Any = Queue(maxsize=maxsize)
         elif kind == "thread":
             self._q = ThreadSafeQueue(maxsize=maxsize)
         else:
             msg = f"Unknown queue type: {kind}"
             raise ValueError(msg)
-        self._maxsize = maxsize
-
-    @property
-    def maxsize(self) -> int:
-        """Queue 容量上限，0 表示無界。"""
-        return self._maxsize
+        self._cache: list[Msg[T]] | None = None
 
 
 class AsyncBoundedQ(Generic[T]):
-    """asyncio.Queue 包裝，用於 async stage 之間。
+    """``asyncio.Queue`` 包裝，用於 async stage 內部通訊。
 
-    提供與 ``Q`` 類似的介面，但使用 ``async``/``await``。
-    ``maxsize=0`` 時為無界。
+    提供 ``async for`` 迭代（到 ``END_MSG`` 為止）、
+    以及 ``put`` / ``get`` / ``end`` 方法。
 
     Args:
-        maxsize: queue 容量上限，0 表示無界。
+        maxsize: 最大容量，0 = 無界。
     """
 
-    def __init__(self, maxsize: int = 0) -> None:
+    def __init__(self, *, maxsize: int = 0) -> None:
         self._q: asyncio.Queue[Msg[T]] = asyncio.Queue(maxsize=maxsize)
-        self._maxsize = maxsize
 
-    @property
-    def maxsize(self) -> int:
-        """Queue 容量上限，0 表示無界。"""
-        return self._maxsize
+    async def put(self, data: T, *, order: int = 0) -> None:
+        """Put a data item wrapped in ``Msg``."""
+        await self._q.put(Msg(data=data, order=order))
 
-    def qsize(self) -> int:
-        """回傳 queue 中的近似項目數。"""
-        return self._q.qsize()
-
-    def empty(self) -> bool:
-        """Queue 為空時回傳 ``True``。"""
-        return self._q.empty()
-
-    def full(self) -> bool:
-        """Queue 已滿時回傳 ``True``。"""
-        return self._q.full()
-
-    async def put(self, data: T | Msg[T], *, kind: str = "", order: int = 0) -> None:
-        """放入訊息，queue 滿時 await 阻塞（背壓）。
-
-        Args:
-            data: 訊息資料或已包裝的 ``Msg``。
-            kind: 訊息種類標記。
-            order: 訊息排序編號。
-        """
-        if isinstance(data, Msg):
-            await self._q.put(data)
-        else:
-            await self._q.put(Msg(data=data, kind=kind, order=order))
+    async def put_msg(self, msg: Msg[T]) -> None:
+        """Put a raw ``Msg`` directly."""
+        await self._q.put(msg)
 
     async def get(self) -> Msg[T]:
-        """取出訊息，queue 空時 await 阻塞。"""
+        """Get the next ``Msg``."""
         return await self._q.get()
 
     async def end(self) -> None:
-        """放入 ``END_MSG`` 表示不再有後續訊息。"""
+        """Send ``END_MSG`` sentinel."""
         await self._q.put(END_MSG)
 
-    async def __aiter__(self) -> AsyncIterator[Msg[T]]:
-        """非同步迭代至收到 ``END_MSG``。"""
+    def qsize(self) -> int:
+        """Approximate queue size."""
+        return self._q.qsize()
+
+    def empty(self) -> bool:
+        """Whether the queue is empty."""
+        return self._q.empty()
+
+    def full(self) -> bool:
+        """Whether the queue is full."""
+        return self._q.full()
+
+    def __aiter__(self) -> AsyncIterator[Msg[T]]:
+        """Iterate until ``END_MSG`` is received."""
+        return self._aiter_impl()
+
+    async def _aiter_impl(self) -> AsyncIterator[Msg[T]]:  # type: ignore[misc]
+        """內部 async iterator 實作。"""
         while True:
             msg = await self._q.get()
             if msg.kind == END_MSG.kind:
@@ -118,43 +113,33 @@ class AsyncBoundedQ(Generic[T]):
 
 
 async def bridge_thread_to_async(
-    source: Q[T],
-    dest: AsyncBoundedQ[T],
+    thread_q: BoundedQ[T],
+    async_q: AsyncBoundedQ[T],
 ) -> None:
-    """從 thread/process queue 讀取並放入 async queue。
+    """從 thread-safe queue 讀取並轉發到 async queue。
 
-    在 executor 中執行阻塞式 ``get()``，再 await 放入 async queue。
-    遇到 ``END_MSG`` 時結束並在 dest 放入 ``END_MSG``。
-
-    Args:
-        source: 來源 thread/process queue（``Q`` 或 ``BoundedQ``）。
-        dest: 目標 async queue。
+    在 event loop 中用 ``run_in_executor`` 執行阻塞的 ``get()``，
+    讀到 ``END_MSG`` 時結束並送 ``END_MSG`` 到 ``async_q``。
     """
     loop = asyncio.get_running_loop()
-    # Q.__getattr__ 將 get 委派給底層 queue
-    _get = source.get
     while True:
-        msg: Msg[T] = await loop.run_in_executor(None, _get)
+        msg: Msg[T] = await loop.run_in_executor(None, thread_q._q.get)  # noqa: SLF001
         if msg.kind == END_MSG.kind:
-            await dest.end()
+            await async_q.end()
             break
-        await dest.put(msg)
+        await async_q.put_msg(msg)
 
 
 async def bridge_async_to_thread(
-    source: AsyncBoundedQ[T],
-    dest: Q[T],
+    async_q: AsyncBoundedQ[T],
+    thread_q: BoundedQ[T],
 ) -> None:
-    """從 async queue 讀取並放入 thread/process queue。
+    """從 async queue 讀取並轉發到 thread-safe queue。
 
-    以 ``run_in_executor`` 包裝阻塞式 ``put()``，避免阻塞事件迴圈。
-    遇到 ``END_MSG`` 時結束並在 dest 放入 ``END_MSG``。
-
-    Args:
-        source: 來源 async queue。
-        dest: 目標 thread/process queue（``Q`` 或 ``BoundedQ``）。
+    讀到 ``END_MSG`` 時結束並送 ``END_MSG`` 到 ``thread_q``。
+    用 ``run_in_executor`` 避免阻塞 event loop。
     """
     loop = asyncio.get_running_loop()
-    async for msg in source:
-        await loop.run_in_executor(None, dest.put, msg)
-    await loop.run_in_executor(None, dest.end)
+    async for msg in async_q:
+        await loop.run_in_executor(None, thread_q._q.put, msg)  # noqa: SLF001
+    await loop.run_in_executor(None, thread_q._q.put, END_MSG)  # noqa: SLF001
