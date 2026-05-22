@@ -31,6 +31,12 @@ pip install qqabc
 > raise :class:`WorkersDiedOutError`。此情況下必須自己提供 ``resolve(worker=...)``
 > (見 §3.5 自訂 Worker), 例如改用 ``requests`` / ``urllib``。
 
+> **_NOTE:_** **支援的 Python 版本** — `qqabc` (含 `qqabc.rurl`, `qqabc.qq`)
+> 在 CI 上測試 Python 3.9–3.13; `qqabc.pipe` 需要 Python 3.10+ (import 時會檢查)。
+> Python 3.8 為 **best-effort**: source-level 相容且 `pyproject.toml` 仍宣告
+> `requires-python = ">=3.8"`, 但因 3.8 已 EOL 而未列入 CI matrix, 出問題時
+> 不保證會修。建議升級到 3.9 以上。
+
 ## 3. 主要功能
 
 ### 3.1 任務管理
@@ -38,8 +44,9 @@ pip install qqabc
 - `add(url)`: 加入下載任務，回傳 task_id。
 - `add_wait(url)`: 加入下載任務並等待完成，回傳下載結果。
 - `wait(task_id)`: 等待指定任務完成。
-- `completed(timeout)`: 取得所有已完成任務（可設定超時）。
-- `iter_and_close()`: 迭代所有完成任務並關閉解析器。
+- `completed()`: 取得所有已完成任務 (已知任務全部完成後 generator 結束)。
+- `iter_completed_tasks()`: 同上, 但只 yield task_id。
+- `iter_and_close()`: 迭代所有完成任務並關閉解析器 (呼叫後不可再 `add`)。
 
 ### 3.2 檔案自動判斷與打開
 
@@ -68,6 +75,8 @@ with resolve() as resolver:
 可自訂 Worker 類別以擴充下載邏輯，以下演示使用requests作為下載工具
 
 ```python
+from contextlib import contextmanager
+
 from qqabc.rurl import DefaultWorker, resolve
 
 class RequestWorker(DefaultWorker):
@@ -94,7 +103,7 @@ from qqabc.rurl import BasicUrlGrammar, resolve
 class CustomGrammar(BasicUrlGrammar):
     def main_rule(self, content: str) -> str | None:
         if content.startswith("custom://"):
-            return "https://picsum.photos/{content.replace('custom://', '')}"
+            return f"https://picsum.photos/{content.replace('custom://', '')}"
         return None
 
 with resolve(grammars=[CustomGrammar()]) as resolver:
@@ -151,7 +160,7 @@ url = "https://picsum.photos/200"
 with resolve() as resolver:
     i = 100
     resolver.add(f"https://picsum.photos/{i}")
-    for task in resolver.completed(timeout=5): # 超過timeout無新任務將認為全部做完並跳出迴圈
+    for task in resolver.completed(): # 已知任務全部完成後 generator 結束
         b = task.data
         # b 為下載的二進位內容
         # 動態添加新任務
@@ -226,6 +235,8 @@ with resolve(cache_size=0) as resolver:
 以下演示cache size以及寫入硬碟的時機
 
 ```python
+from io import BytesIO
+
 from qqabc.rurl import DefaultWorker, InData, OutData, resolve
 
 class Worker(DefaultWorker):

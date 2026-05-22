@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Generator
 
 from qqabc.types import (
+    DataDeletedError,
     InData,
     IStorage,
     IUrlGrammar,
@@ -101,16 +102,18 @@ class Storage(IStorage):
         self.saved.add(task_id)
 
     def load(self, task_id: int) -> OutData:
-        if task_id not in self.outdata_storage and task_id in self.saved:
-            fpath = _ensure_fpath(self.indata_storage[task_id].fpath, task_id)
-            st = time.time()
-            while (
-                time.time() - st
-            ) < _WAIT_STORAGE_SAVE_TIMEOUT and not fpath.exists():
-                time.sleep(0.01)
-            with open(fpath, "rb") as fp:
-                b = BytesIO(fp.read())
-            return OutData(task_id=task_id, data=b)
+        if task_id not in self.outdata_storage:
+            if task_id in self.saved:
+                fpath = _ensure_fpath(self.indata_storage[task_id].fpath, task_id)
+                st = time.time()
+                while (
+                    time.time() - st
+                ) < _WAIT_STORAGE_SAVE_TIMEOUT and not fpath.exists():
+                    time.sleep(0.01)
+                with open(fpath, "rb") as fp:
+                    b = BytesIO(fp.read())
+                return OutData(task_id=task_id, data=b)
+            raise DataDeletedError(task_id)
         return self.outdata_storage[task_id]
 
     def _save_to_disk(

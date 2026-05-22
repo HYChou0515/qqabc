@@ -118,7 +118,8 @@ class IStorage(ABC):
     def load(self, task_id: int) -> OutData:
         """Load the output data associated with the given task ID.
 
-        Raises ValueError if the data has been deleted.
+        Raises :class:`DataDeletedError` if no entry exists for ``task_id``
+        (never saved or already deleted).
         """
 
     @abstractmethod
