@@ -39,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 
@@ -233,6 +234,7 @@ def _retry_worker(  # noqa: PLR0912
     dead_letters: list[tuple[str, Exception, Any]],
     dl_lock: threading.Lock,
     raise_error: list[BaseException | None],
+    pool: ProcessPoolExecutor | None = None,
 ) -> None:
     """帶重試邏輯的 worker。
 
@@ -248,7 +250,11 @@ def _retry_worker(  # noqa: PLR0912
             envelope: _RetryEnvelope = msg.data
 
             try:
-                result = fn(envelope.data)
+                if pool is None:
+                    result = fn(envelope.data)
+                else:
+                    # process executor: 真正 fork 到 child process 執行
+                    result = pool.submit(fn, envelope.data).result()
             except Exception as exc:
                 consecutive_failures += 1
 
@@ -530,6 +536,10 @@ class Pipeline(Generic[T, R]):
         self._dead_letters_lock = threading.Lock()
         self._raise_error: list[BaseException | None] = [None]
 
+        # 每個 process stage 都有自己的 ProcessPoolExecutor;
+        # 在 results() 結束時統一關閉。
+        self._pools: list[ProcessPoolExecutor] = []
+
     @property
     def dead_letters(self) -> list[tuple[str, Exception, Any]]:
         """取得所有 dead letter 項目。
@@ -577,6 +587,14 @@ class Pipeline(Generic[T, R]):
                 )
                 state = _StageState(stage.concurrency)
 
+                # process executor 多開一個 ProcessPoolExecutor;
+                # 工作仍由 thread workers 驅動, 但 fn 透過 pool 跑到 child
+                # process 真的繞過 GIL。
+                pool: ProcessPoolExecutor | None = None
+                if stage.executor == "process":
+                    pool = ProcessPoolExecutor(max_workers=stage.concurrency)
+                    self._pools.append(pool)
+
                 for _ in range(stage.concurrency):
                     t = threading.Thread(
                         target=_retry_worker,
@@ -589,6 +607,7 @@ class Pipeline(Generic[T, R]):
                             "dead_letters": self._dead_letters,
                             "dl_lock": self._dead_letters_lock,
                             "raise_error": self._raise_error,
+                            "pool": pool,
                         },
                         daemon=True,
                     )
@@ -629,6 +648,11 @@ class Pipeline(Generic[T, R]):
             yield from (msg.data for msg in self._queues[-1])
         finally:
             self._drained = True
+            # process executor 的 child processes 必須收到 shutdown,
+            # 否則會留下 zombie。out_q.end() 已收到, 表示所有 workers 結束。
+            for pool in self._pools:
+                pool.shutdown(wait=False, cancel_futures=True)
+            self._pools = []
         if self._raise_error[0] is not None:
             raise self._raise_error[0]
 
@@ -660,7 +684,14 @@ class Pipeline(Generic[T, R]):
 
         Returns:
             結果 iterator。
+
+        Raises:
+            RuntimeError: pipeline 已 closed 或 results 已被消費過。
+                ``run()`` 是 single-shot, 第二次呼叫會 raise 而不是 hang。
         """
+        if self._closed or self._drained:
+            msg = "Pipeline already used; run() is single-shot."
+            raise RuntimeError(msg)
         self._start()
 
         def _feed() -> None:

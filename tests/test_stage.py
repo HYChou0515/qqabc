@@ -77,6 +77,20 @@ class TestStageInstantiation:
         with pytest.raises(ValueError, match="concurrency"):
             Stage(fn=lambda x: x, concurrency=-1)
 
+    def test_async_executor_with_sync_fn_rejected(self) -> None:
+        """明確要求 executor='async' 但 fn 是同步函式 → 立即 raise.
+
+        過去版本 (audit N2): 等到 pipeline 真的開跑才報 'object int can't be
+        used in await expression' — 完全看不出根因。改成 Stage 建構時就擋掉。
+        """
+        from qqabc.pipe.stage import Stage
+
+        def sync_fn(x: int) -> int:
+            return x * 2
+
+        with pytest.raises(TypeError, match="async"):
+            Stage(fn=sync_fn, executor="async")
+
     def test_name_defaults_to_fn_name(self) -> None:
         """未提供 name 時使用 fn.__name__。"""
         from qqabc.pipe.stage import Stage
@@ -126,10 +140,13 @@ class TestStageInstantiation:
         assert stage.executor == "process"
 
     def test_async_executor_explicit(self) -> None:
-        """明確指定 executor='async'。"""
+        """明確指定 executor='async' (需 async fn)。"""
         from qqabc.pipe.stage import Stage
 
-        stage = Stage(fn=lambda x: x, executor="async")
+        async def async_fn(x: int) -> int:
+            return x
+
+        stage = Stage(fn=async_fn, executor="async")
         assert stage.executor == "async"
 
 
@@ -375,11 +392,18 @@ class TestExecutorType:
         assert ExecutorType is not None
 
     def test_all_executor_values(self) -> None:
-        """Stage 接受三種 executor 值。"""
+        """Stage 接受三種 executor 值 (async 必須搭配 async fn)."""
         from qqabc.pipe.stage import Stage
 
-        for executor in ("thread", "process", "async"):
-            stage = Stage(fn=lambda x: x, executor=executor)  # type: ignore[arg-type]
+        async def async_fn(x: int) -> int:
+            return x
+
+        for executor, fn in (
+            ("thread", lambda x: x),
+            ("process", lambda x: x),
+            ("async", async_fn),
+        ):
+            stage = Stage(fn=fn, executor=executor)  # type: ignore[arg-type]
             assert stage.executor == executor
 
 

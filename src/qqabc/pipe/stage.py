@@ -128,11 +128,17 @@ class Stage(IStage[T, R]):
         if concurrency < 1:
             msg = f"concurrency must be >= 1, got {concurrency}"
             raise ValueError(msg)
+        is_coro = inspect.iscoroutinefunction(fn)
+        if executor == "async" and not is_coro:
+            msg = (
+                "executor='async' requires an async function (coroutine), "
+                f"got {type(fn).__name__}. 改用 executor='thread' 或把 fn "
+                "改為 async def。"
+            )
+            raise TypeError(msg)
         self._fn = fn
         self._executor: ExecutorType = (
-            executor
-            if executor is not None
-            else ("async" if inspect.iscoroutinefunction(fn) else "thread")
+            executor if executor is not None else ("async" if is_coro else "thread")
         )
         self._concurrency = concurrency
         self._name = name or getattr(fn, "__name__", "")

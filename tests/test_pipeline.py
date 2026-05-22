@@ -225,6 +225,60 @@ class TestPipelineLifecycle:
         with pytest.raises(RuntimeError, match="results"):
             list(p)
 
+    def test_run_called_twice_raises(self) -> None:
+        """run() 是 single-shot; 重複呼叫不可靜默 hang."""
+        from qqabc.pipe import Pipeline, Stage
+
+        p = Pipeline([Stage(fn=lambda x: x + 1)])
+        assert sorted(p.run([1, 2, 3])) == [2, 3, 4]
+        with pytest.raises(RuntimeError, match=r"single-shot|results|closed"):
+            list(p.run([4, 5, 6]))
+
+
+def _square(x: int) -> int:
+    """Module-level fn for process-executor tests (lambdas don't pickle)."""
+    return x * x
+
+
+def _getpid(_x: int) -> int:
+    import os
+
+    return os.getpid()
+
+
+class TestProcessExecutor:
+    """executor='process' 必須真的在 child process 執行, 否則 README 騙人."""
+
+    def test_process_executor_runs_in_child_process(self) -> None:
+        """各 worker 必須有與 parent 不同的 PID, 否則就是 thread 假裝 process."""
+        import os
+
+        from qqabc.pipe import Stage, pipe
+
+        parent = os.getpid()
+        # 多送一些 items 增加抽到多個 worker PID 的機會
+        pids = list(
+            pipe(
+                [Stage(fn=_getpid, executor="process", concurrency=2)],
+                input=list(range(8)),
+            )
+        )
+        assert pids, "expected some pids"
+        assert all(p != parent for p in pids), (
+            f"process executor must fork; got pids {pids} (parent {parent})"
+        )
+
+    def test_process_executor_returns_correct_results(self) -> None:
+        from qqabc.pipe import Stage, pipe
+
+        result = sorted(
+            pipe(
+                [Stage(fn=_square, executor="process", concurrency=2)],
+                input=[1, 2, 3, 4, 5],
+            )
+        )
+        assert result == [1, 4, 9, 16, 25]
+
 
 # === 背壓驗證 ===
 

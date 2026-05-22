@@ -1,0 +1,16 @@
+qqabc — Simple Message Queue Implementation
+============================================
+
+Portions of this project are derived from third-party code:
+
+src/qqabc/qq.py
+---------------
+Copyright 2025 Metaist LLC. Used under the MIT License (see the file's
+license header for the full text). The original work provides the base
+`Q` / `Worker` / `mapq` primitives that the higher-level `qqabc.pipe` and
+`qqabc.rurl` modules are built on top of.
+
+Original project: https://github.com/metaist/attobox (or upstream of the
+vendored snapshot; please verify before re-syncing).
+
+Local modifications since vendoring are listed in the project git history.

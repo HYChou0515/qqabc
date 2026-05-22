@@ -47,13 +47,20 @@ class TestPipeImport310Plus:
         assert result.returncode == 0
         assert "ok" in result.stdout
 
-    def test_pipe_extra_exists_in_metadata(self) -> None:
-        """qqabc[pipe] 應該是合法的 optional dependency group。"""
+    def test_no_empty_pipe_extra(self) -> None:
+        """qqabc.pipe 隨 base wheel 出貨, 不該再有 ``[pipe]`` extra (audit #28).
+
+        過去版本有個 ``pipe = []`` 的空 extra; README 也誤導使用者
+        ``pip install qqabc[pipe]``。pipe 模組根本沒有額外依賴, 整個
+        extra 是無作用的, 直接砍掉。
+        """
         from importlib.metadata import metadata
 
         meta = metadata("qqabc")
         extras = [v for k, v in meta.items() if k == "Provides-Extra"]
-        assert "pipe" in extras, f"pipe not in extras: {extras}"
+        assert "pipe" not in extras, (
+            f"empty pipe extra should be removed; found extras={extras}"
+        )
 
 
 class TestPipeInitContent:

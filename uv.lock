@@ -1724,7 +1724,7 @@ requires-dist = [
     { name = "multiprocess", specifier = "~=0.70.14" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-provides-extras = ["httpx", "pipe"]
+provides-extras = ["httpx"]
 
 [package.metadata.requires-dev]
 dev = [

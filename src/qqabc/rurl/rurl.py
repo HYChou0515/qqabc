@@ -181,7 +181,23 @@ class IResolver(ABC):
         *,
         on_err: Literal["raise", "none"] = "raise",
     ) -> int | None:
-        """Add a URL to be resolved and return its task ID."""
+        """Add a URL to be resolved and return its task ID.
+
+        Args:
+            url: 待下載的 URL 字串。若為 ``None``, 從 ``fname`` 讀檔解析。
+            fname: 本地檔案路徑; 若檔案已存在, 視為 already-resolved。
+            on_err: 僅控制 *URL 偵測階段* 的失敗策略, **不是傳輸層錯誤**。
+                當 ``url`` 為 ``None`` 且 ``fname`` 的內容無法被任何 grammar
+                解析為 URL 時:
+
+                - ``"raise"`` (預設): 丟出 :class:`InvalidUrlError`。
+                - ``"none"``: 回傳 ``None``, 不建立 task。
+
+                HTTP 4xx/5xx / 連線失敗等實際下載錯誤由 ``job_chance``
+                重試機制處理, 與 ``on_err`` 無關。直接傳入字串 url 時,
+                ``on_err`` 通常用不到 — solve_url 解不出來會 fall back
+                到字串本身。
+        """
 
     @abstractmethod
     def solve_url(self, url: str | IO[bytes]) -> str | None:

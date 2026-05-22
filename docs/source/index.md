@@ -20,11 +20,16 @@ with resolve() as resolver:
 pip install qqabc[httpx]
 ```
 
-不想要安裝httpx可使用
+不想要安裝 httpx 也可以使用
 
 ```
 pip install qqabc
 ```
+
+> **_NOTE:_** 沒有 ``[httpx]`` extra 時, 預設的 ``DefaultWorker`` 會在啟動時
+> ``import httpx`` 失敗 → 所有 worker 立刻死光, ``wait()``/``completed()`` 會
+> raise :class:`WorkersDiedOutError`。此情況下必須自己提供 ``resolve(worker=...)``
+> (見 §3.5 自訂 Worker), 例如改用 ``requests`` / ``urllib``。
 
 ## 3. 主要功能
 
@@ -262,10 +267,8 @@ with open("urls2.txt", "rb") as fp:
 
 `qqabc.pipe` 提供 `Stage` 抽象，用於定義 pipeline 中的處理階段。每個 Stage 可獨立選擇執行模式（thread / process / async），適合區分 CPU-bound 與 IO-bound 任務。
 
-**安裝**
-```
-pip install qqabc[pipe]
-```
+> **_NOTE:_** Pipeline 隨 base 套件一起出貨, 不需要額外的 extra; 只要 Python ≥ 3.10
+> 就能 ``from qqabc.pipe import pipe, Stage``。
 
 ### 6.1 基本用法
 
@@ -366,6 +369,14 @@ pipeline = custom | Stage(fn=save_fn, name="save")
 ### 6.6 Pipeline — 一行建構流水線
 
 `pipe()` 是最簡單的使用方式：傳入 Stage 列表與 input 資料，自動串接、執行、回傳結果。
+
+> **_NOTE:_** Pipeline 是 **streaming**, 輸出順序為 *完成順序* 而非送入順序。
+> 例如 `concurrency=4` 配合長短不一的工作, 早完成的 item 會先出來。需要保持
+> 順序時, 自行在每個 item 攜帶 index 並在收集端 sort。
+
+> **_NOTE:_** `pipe(stages, input=...)` 回傳的是 iterator (不是 Pipeline 物件),
+> 因此無法存取 `dead_letters`。要用 `on_error="dead_letter"` 收集失敗 item 時,
+> 改用 `Pipeline` context manager 並 keep reference (見 §Context Manager 用法)。
 
 ```python
 from qqabc.pipe import pipe, Stage

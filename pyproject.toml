@@ -40,7 +40,6 @@ path = "src/qqabc/__init__.py"
 httpx = [
     "httpx>=0.28.1",
 ]
-pipe = []
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
