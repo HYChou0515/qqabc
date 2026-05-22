@@ -33,6 +33,36 @@ def test_import_version():
     assert re.match(r"^v?\d+\.\d+\.\d+([.-]\w+)?$", __version__)
 
 
+def test_rurl_reexports_documented_exceptions() -> None:
+    """README "4. 例外處理" 提到的例外類別應該可由 qqabc.rurl 直接 import.
+
+    Audit #9: 過去這些 class 只能從 qqabc.types 取得, 與 docs 不一致.
+    """
+    from qqabc.rurl import (
+        DataDeletedError,
+        InvalidTaskError,
+        InvalidUrlError,
+        WorkersDiedOutError,
+    )
+    from qqabc.types import (
+        DataDeletedError as _DataDeletedError,
+    )
+    from qqabc.types import (
+        InvalidTaskError as _InvalidTaskError,
+    )
+    from qqabc.types import (
+        InvalidUrlError as _InvalidUrlError,
+    )
+    from qqabc.types import (
+        WorkersDiedOutError as _WorkersDiedOutError,
+    )
+
+    assert DataDeletedError is _DataDeletedError
+    assert InvalidTaskError is _InvalidTaskError
+    assert InvalidUrlError is _InvalidUrlError
+    assert WorkersDiedOutError is _WorkersDiedOutError
+
+
 def test_iresolver_exit_is_abstract():
     """驗證 IResolver.__exit__ 為 abstractmethod，
 

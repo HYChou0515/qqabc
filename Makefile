@@ -20,6 +20,7 @@ help:
 	@echo "  check        檢查程式碼品質 (ruff check)"
 	@echo "  format       格式化程式碼 (ruff format)"
 	@echo "  lint         執行 lint 檢查"
+	@echo "  ty           靜態型別檢查 (Astral ty)"
 	@echo "  install      安裝專案依賴"
 	@echo "  dev-install  安裝開發依賴"
 	@echo "  build        建置套件"
@@ -92,7 +93,7 @@ style:
 
 # 檢查程式碼品質
 .PHONY: check
-check:
+check: ty
 	@echo "檢查程式碼品質..."
 	uv run ruff check .
 	uv run ruff format --check
@@ -107,6 +108,12 @@ format:
 .PHONY: lint
 lint: check
 	@echo "Lint 檢查完成"
+
+# 靜態型別檢查 (Astral ty)
+.PHONY: ty
+ty:
+	@echo "靜態型別檢查 (ty)..."
+	uv run --extra httpx ty check src/
 
 # 清理所有暫存和構建文件
 .PHONY: clean

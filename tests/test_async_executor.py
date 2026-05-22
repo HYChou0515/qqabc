@@ -93,8 +93,8 @@ class TestAsyncConcurrencyControl:
 class TestAsyncErrorHandling:
     """Async stage 中 fn 拋出例外時的行為。"""
 
-    def test_error_does_not_deadlock(self) -> None:
-        """單一 item 拋出例外時，pipeline 不 deadlock、其餘 item 正常。"""
+    def test_error_default_raises(self) -> None:
+        """Async stage 預設 on_error='raise', 與 thread/process 一致, 不可靜默丟棄."""
         from qqabc.pipe import Stage, pipe
 
         async def maybe_fail(x: int) -> int:
@@ -103,13 +103,26 @@ class TestAsyncErrorHandling:
                 raise ValueError(msg)
             return x
 
-        result = list(pipe([Stage(fn=maybe_fail)], input=range(10)))
+        with pytest.raises(ValueError, match="boom"):
+            list(pipe([Stage(fn=maybe_fail)], input=range(10)))
+
+    def test_error_does_not_deadlock(self) -> None:
+        """單一 item 拋出例外時，pipeline 不 deadlock、其餘 item 正常 (使用 skip)."""
+        from qqabc.pipe import Stage, pipe
+
+        async def maybe_fail(x: int) -> int:
+            if x == 5:
+                msg = "boom"
+                raise ValueError(msg)
+            return x
+
+        result = list(pipe([Stage(fn=maybe_fail, on_error="skip")], input=range(10)))
         # item 5 失敗被丟棄，其餘正常
         assert 5 not in result
         assert sorted(result) == [0, 1, 2, 3, 4, 6, 7, 8, 9]
 
     def test_multiple_errors(self) -> None:
-        """多個 item 拋出例外，pipeline 仍完成。"""
+        """多個 item 拋出例外，pipeline 仍完成 (skip 模式)."""
         from qqabc.pipe import Stage, pipe
 
         async def fail_odd(x: int) -> int:
@@ -118,18 +131,18 @@ class TestAsyncErrorHandling:
                 raise ValueError(msg)
             return x
 
-        result = list(pipe([Stage(fn=fail_odd)], input=range(10)))
+        result = list(pipe([Stage(fn=fail_odd, on_error="skip")], input=range(10)))
         assert sorted(result) == [0, 2, 4, 6, 8]
 
     def test_all_errors_empty_result(self) -> None:
-        """所有 item 都失敗，回傳空結果、不 deadlock。"""
+        """所有 item 都失敗，回傳空結果、不 deadlock (skip 模式)."""
         from qqabc.pipe import Stage, pipe
 
         async def always_fail(x: int) -> int:
             msg = "always"
             raise ValueError(msg)
 
-        result = list(pipe([Stage(fn=always_fail)], input=range(5)))
+        result = list(pipe([Stage(fn=always_fail, on_error="skip")], input=range(5)))
         assert result == []
 
 

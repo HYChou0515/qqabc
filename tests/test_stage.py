@@ -63,6 +63,20 @@ class TestStageInstantiation:
         stage = Stage(fn=lambda x: x, concurrency=16)
         assert stage.concurrency == 16
 
+    def test_concurrency_zero_rejected(self) -> None:
+        """concurrency=0 應立即 raise，避免 Pipeline 啟動後 hang 無解."""
+        from qqabc.pipe.stage import Stage
+
+        with pytest.raises(ValueError, match="concurrency"):
+            Stage(fn=lambda x: x, concurrency=0)
+
+    def test_concurrency_negative_rejected(self) -> None:
+        """負數 concurrency 同樣應拒絕."""
+        from qqabc.pipe.stage import Stage
+
+        with pytest.raises(ValueError, match="concurrency"):
+            Stage(fn=lambda x: x, concurrency=-1)
+
     def test_name_defaults_to_fn_name(self) -> None:
         """未提供 name 時使用 fn.__name__。"""
         from qqabc.pipe.stage import Stage

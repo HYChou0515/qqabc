@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 def test_partial_failure_continues():
     """
     Given: 數字 0~9
-    When:  async stage 對 x==5 拋出 ValueError
+    When:  async stage 設定 on_error="skip" 並對 x==5 拋出 ValueError
     Then:  5 被丟棄，其餘 [0,1,2,3,4,6,7,8,9] 正常回傳
     """
     from qqabc.pipe import Stage, pipe
@@ -36,7 +36,7 @@ def test_partial_failure_continues():
             raise ValueError(msg)
         return x
 
-    results = sorted(pipe([Stage(fn=maybe_fail)], input=range(10)))
+    results = sorted(pipe([Stage(fn=maybe_fail, on_error="skip")], input=range(10)))
 
     assert results == [0, 1, 2, 3, 4, 6, 7, 8, 9]
 
@@ -53,7 +53,7 @@ def test_all_failures_return_empty():
         msg = "always fail"
         raise ValueError(msg)
 
-    results = list(pipe([Stage(fn=always_fail)], input=range(5)))
+    results = list(pipe([Stage(fn=always_fail, on_error="skip")], input=range(5)))
 
     assert results == []
 
@@ -72,6 +72,6 @@ def test_odd_numbers_filtered_by_error():
             raise ValueError(msg)
         return x
 
-    results = sorted(pipe([Stage(fn=even_only)], input=range(10)))
+    results = sorted(pipe([Stage(fn=even_only, on_error="skip")], input=range(10)))
 
     assert results == [0, 2, 4, 6, 8]

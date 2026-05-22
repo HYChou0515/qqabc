@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import asyncio
 from queue import Queue as ThreadSafeQueue
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from multiprocess import Queue  # type: ignore[reportAttributeAccessIssue]
 
 from qqabc.qq import END_MSG, Msg, Q
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
     from qqabc.qq import ContextName
 
@@ -47,15 +47,22 @@ class BoundedQ(Q[T]):
         kind: ContextName = "thread",
         maxsize: int = 0,
     ) -> None:
-        # 不呼叫 super().__init__()，直接建立有 maxsize 的 queue
-        if kind == "process":
-            self._q: Any = Queue(maxsize=maxsize)
-        elif kind == "thread":
-            self._q = ThreadSafeQueue(maxsize=maxsize)
-        else:
+        # 不呼叫 super().__init__()，直接建立有 maxsize 的 queue。
+        # 透過 dict dispatch 避免不可達分支的型別警告 (kind 是 Literal,
+        # 但仍需要在 runtime 拒絕錯誤的字串)。
+        factory = self._FACTORIES.get(kind)
+        if factory is None:
             msg = f"Unknown queue type: {kind}"
             raise ValueError(msg)
+        self._q: Any = factory(maxsize)
+        # multiprocess.Queue exposes maxsize as `_maxsize`; surface it uniformly.
+        self.maxsize = maxsize
         self._cache: list[Msg[T]] | None = None
+
+    _FACTORIES: ClassVar[dict[str, Callable[[int], Any]]] = {
+        "process": lambda maxsize: Queue(maxsize=maxsize),
+        "thread": lambda maxsize: ThreadSafeQueue(maxsize=maxsize),
+    }
 
 
 class AsyncBoundedQ(Generic[T]):
@@ -70,10 +77,18 @@ class AsyncBoundedQ(Generic[T]):
 
     def __init__(self, *, maxsize: int = 0) -> None:
         self._q: asyncio.Queue[Msg[T]] = asyncio.Queue(maxsize=maxsize)
+        self.maxsize = maxsize
 
-    async def put(self, data: T, *, order: int = 0) -> None:
-        """Put a data item wrapped in ``Msg``."""
-        await self._q.put(Msg(data=data, order=order))
+    async def put(self, data: T | Msg[T], *, order: int = 0) -> None:
+        """Put a data item wrapped in ``Msg``.
+
+        Mirrors :py:meth:`qqabc.qq.Q.put`: if ``data`` is already a ``Msg``,
+        it is forwarded as-is rather than double-wrapped.
+        """
+        if isinstance(data, Msg):
+            await self._q.put(data)
+        else:
+            await self._q.put(Msg(data=data, order=order))
 
     async def put_msg(self, msg: Msg[T]) -> None:
         """Put a raw ``Msg`` directly."""

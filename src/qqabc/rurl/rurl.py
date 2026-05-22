@@ -343,6 +343,11 @@ class Resolver(IResolver):
             else:
                 yield io.StringIO(outd.data.read().decode("utf-8"))
 
+    @overload
+    def iter_open(self, mode: Literal["rb"]) -> Generator[IO[bytes]]: ...
+    @overload
+    def iter_open(self, mode: Literal["r"] = "r") -> Generator[IO[str]]: ...
+
     def iter_open(
         self,
         mode: Literal["r", "rb"] = "r",

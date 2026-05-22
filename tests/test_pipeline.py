@@ -175,6 +175,57 @@ class TestPipelineContextManager:
             Pipeline([])
 
 
+# === Lifecycle (fail loud, not silent) ===
+
+
+class TestPipelineLifecycle:
+    """Pipeline 生命週期錯誤應立即 raise，不可靜默丟資料或 hang."""
+
+    def test_submit_after_close_raises(self) -> None:
+        """close() 之後再 submit 必須 raise，避免資料被 END_MSG 後面靜默丟掉."""
+        from qqabc.pipe import Pipeline, Stage
+
+        p = Pipeline([Stage(fn=lambda x: x + 1)])
+        p.submit(1)
+        p.close()
+        with pytest.raises(RuntimeError, match="closed"):
+            p.submit(2)
+        # 第一個 item 仍應正常產出
+        assert list(p.results()) == [2]
+
+    def test_submit_many_after_close_raises(self) -> None:
+        """submit_many 同樣不可在 close 後悄悄成功."""
+        from qqabc.pipe import Pipeline, Stage
+
+        p = Pipeline([Stage(fn=lambda x: x)])
+        p.close()
+        with pytest.raises(RuntimeError, match="closed"):
+            p.submit_many([1, 2, 3])
+
+    def test_results_called_twice_raises(self) -> None:
+        """results() 是 single-shot iterator; 第二次呼叫必須 raise, 不可 hang."""
+        from qqabc.pipe import Pipeline, Stage
+
+        p = Pipeline([Stage(fn=lambda x: x + 1)])
+        p.submit(1)
+        p.submit(2)
+        p.close()
+        assert sorted(p.results()) == [2, 3]
+        with pytest.raises(RuntimeError, match="results"):
+            list(p.results())
+
+    def test_iter_called_twice_raises(self) -> None:
+        """__iter__ 委派至 results()，也應遵守 single-shot 規則."""
+        from qqabc.pipe import Pipeline, Stage
+
+        p = Pipeline([Stage(fn=lambda x: x)])
+        p.submit(42)
+        p.close()
+        assert list(p) == [42]
+        with pytest.raises(RuntimeError, match="results"):
+            list(p)
+
+
 # === 背壓驗證 ===
 
 
