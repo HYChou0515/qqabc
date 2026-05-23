@@ -1,10 +1,9 @@
-# AutoCRUD 開發與文檔 Makefile
+# qqabc 開發與文檔 Makefile
 
-# 變數設定
-SPHINXOPTS    ?=
-SPHINXBUILD  ?= uv run sphinx-build
-SOURCEDIR    = docs/source
-BUILDDIR     = docs/build
+# 變數設定 (文檔)
+MKDOCS    ?= uv run mkdocs
+DOCS_DIR  = docs
+SITE_DIR  = site
 
 # 默認目標
 .PHONY: help
@@ -28,12 +27,11 @@ help:
 	@echo "  clean        清理所有暫存和構建文件 (clean-dev + clean-docs)"
 	@echo "  clean-dev    清理開發暫存檔案"
 	@echo ""
-	@echo "文檔工具："
-	@echo "  html         構建 HTML 文檔"
-	@echo "  clean-docs   清理文檔構建文件"
-	@echo "  serve        啟動本地文檔服務器"
-	@echo "  linkcheck    檢查文檔中的連結"
-	@echo "  all-docs     構建所有文檔格式"
+	@echo "文檔工具 (MkDocs Material)："
+	@echo "  docs-build   構建 HTML 文檔 (--strict)"
+	@echo "  docs-serve   啟動本地預覽 (live-reload, http://127.0.0.1:8000)"
+	@echo "  docs-deploy  部署到 GitHub Pages (推 gh-pages branch)"
+	@echo "  clean-docs   清理 site/ 目錄"
 	@echo ""
 	@echo "複合指令："
 	@echo "  quality      完整的程式碽品質檢查 (style + check + test)"
@@ -169,44 +167,34 @@ ci: check test coverage
 full-check: clean-dev dev-install quality coverage
 	@echo "完整檢查完成"
 
-# === 文檔工具 ===
+# === 文檔工具 (MkDocs Material) ===
 
-# 構建 HTML 文檔
-.PHONY: html
-html:
-	$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
+# 構建文檔 (--strict: 警告當成錯誤, broken link 直接 fail)
+.PHONY: docs-build
+docs-build:
+	$(MKDOCS) build --strict
 	@echo ""
 	@echo "HTML 文檔構建完成。文檔位置："
-	@echo "  file://$(PWD)/$(BUILDDIR)/html/index.html"
+	@echo "  file://$(PWD)/$(SITE_DIR)/index.html"
+
+# 啟動本地預覽 (live-reload)
+.PHONY: docs-serve
+docs-serve:
+	$(MKDOCS) serve
+
+# 部署到 GitHub Pages (推 gh-pages branch); 通常由 CI 觸發
+.PHONY: docs-deploy
+docs-deploy:
+	$(MKDOCS) gh-deploy --force --message 'docs: deploy {sha}'
 
 # 清理文檔構建文件
 .PHONY: clean-docs
 clean-docs:
-	rm -rf "$(BUILDDIR)"/*
+	rm -rf "$(SITE_DIR)"
 	@echo "文檔構建文件已清理"
 
-# 啟動本地服務器
-.PHONY: serve
-serve: html
-	@echo "啟動文檔服務器於 http://localhost:8081"
-	@cd "$(BUILDDIR)/html" && python -m http.server 8081
-
-# 檢查連結
-.PHONY: linkcheck
-linkcheck:
-	$(SPHINXBUILD) -b linkcheck "$(SOURCEDIR)" "$(BUILDDIR)/linkcheck" $(SPHINXOPTS)
-
-# 構建所有文檔格式
-.PHONY: all-docs
-all-docs: clean-docs html
-	@echo "所有文檔格式構建完成"
-
-# 快速構建（不清理）
-.PHONY: quick
-quick:
-	$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
-
-# 實時監控和重建
-.PHONY: livehtml
-livehtml:
-	sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)/html"
+# === 向後相容別名 ===
+.PHONY: html serve all-docs
+html: docs-build
+serve: docs-serve
+all-docs: clean-docs docs-build

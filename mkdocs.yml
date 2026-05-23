@@ -1,0 +1,95 @@
+site_name: QQabc
+site_description: URL 資源下載與 Pipeline 抽象 — 一個簡單的 Python 工具庫
+site_url: https://hychou0515.github.io/qqabc/
+repo_url: https://github.com/HYChou0515/qqabc
+repo_name: HYChou0515/qqabc
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: zh-TW
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - search.share
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切換到暗色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切換到亮色模式
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - 首頁: index.md
+  - URL Resolver (rurl):
+      - rurl/index.md
+      - 使用範例: rurl/examples.md
+  - Pipeline (pipe):
+      - pipe/index.md
+  - 開發資訊:
+      - 相容性: compatibility.md
+      - 變更紀錄: changelog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 4
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search:
+      lang:
+        - en
+        - zh
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/HYChou0515/qqabc
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/qqabc/

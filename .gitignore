@@ -12,3 +12,6 @@ wheels/
 .vscode
 .env
 .coverage
+
+# MkDocs build output
+site/
